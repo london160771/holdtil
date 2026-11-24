@@ -12,7 +12,7 @@
 - **Active phase:** Phase 0 — Foundation + Gate 0 (PRD §27), not started
 - **Status:** Docs written; waiting on owner manual tasks
 - **Next step:** Owner completes the manual tasks in §11 below, then Claude starts Phase 0
-- **Blocked by:** M4–M6 env values (needed mid Phase 0). M1 application due Dec 5.
+- **Blocked by:** nothing. Dev env vars set in the Claude Code cloud environment (6 names in §9). M1 application due Dec 5; M4 MongoDB needed only at deploy.
 
 ## 2. Phase tracker
 
@@ -72,7 +72,7 @@ See `REAL_VS_MOCKED.md`. Nothing built yet.
 
 - **Read first:** `CLAUDE.md`, PRD sections for the active phase, then this file.
 - **Branch:** `main` · **Uncommitted work:** docs (first commit pending repo creation)
-- **Env vars needed (names only, final list set in Phase 0):** `BASE_RPC_URL`, `MONGODB_URI`, `SESSION_SECRET`, `TICK_SECRET`, `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`, `SCOUT_PRIVATE_KEY`
+- **Env vars needed (names only, final list set in Phase 0):** `BASE_RPC_URL`, `MONGODB_URI`, `SESSION_SECRET`, `TICK_SECRET`, `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET` (all 6 set for dev on 2026-11-24); later: `MONGODB_URI` (Render only), `SCOUT_PRIVATE_KEY`
 - **Watch out for:** real money — follow CLAUDE.md §6.
 
 ## 10. Build log
@@ -89,8 +89,8 @@ Status: ⬜ to do · ✅ done
 | M2 | Check you can hold NVDAc from Nigeria | ✅ 2026-11-24 (bought ~$1 on Aerodrome) |
 | M3 | Create the GitHub repo | ✅ 2026-11-24 |
 | M4 | Create MongoDB Atlas free cluster | ⬜ |
-| M5 | Create a Coinbase Developer Platform (CDP) account + API keys | ⬜ |
-| M6 | Get a Base mainnet RPC URL | ⬜ |
+| M5 | Create a Coinbase Developer Platform (CDP) account + API keys | ✅ 2026-11-24 (holdtil-dev project, Live, dev keys in cloud env) |
+| M6 | Get a Base mainnet RPC URL | ✅ 2026-11-24 (public RPC for dev) |
 | M7 | Check @holdtil on X and create it | ⬜ |
 | M8 | Buy holdtil.xyz (can wait until Phase 5) | ⬜ |
 
