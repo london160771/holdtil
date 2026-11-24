@@ -12,7 +12,7 @@
 - **Active phase:** Phase 0 — Foundation + Gate 0 (PRD §27), not started
 - **Status:** Docs written; waiting on owner manual tasks
 - **Next step:** Owner completes the manual tasks in §11 below, then Claude starts Phase 0
-- **Blocked by:** Manual tasks M1–M8 (§11)
+- **Blocked by:** M4–M6 env values (needed mid Phase 0). M1 application due Dec 5.
 
 ## 2. Phase tracker
 
@@ -66,7 +66,7 @@ See `REAL_VS_MOCKED.md`. Nothing built yet.
 
 ## 8. Known issues and limitations
 
-- Eligibility to hold Coinbase tokenized stocks from Nigeria not yet confirmed (PRD §33 #1).
+- Eligibility confirmed: owner bought and holds NVDAc from Nigeria (2026-11-24).
 
 ## 9. Handoff notes
 
@@ -86,8 +86,8 @@ Status: ⬜ to do · ✅ done
 | # | Task | Status |
 |---|---|---|
 | M1 | Apply to Stocks Maxxing (closes Dec 5, 11:59pm EST) | ⬜ |
-| M2 | Check you can hold NVDAc from Nigeria | ⬜ |
-| M3 | Create the GitHub repo | ⬜ |
+| M2 | Check you can hold NVDAc from Nigeria | ✅ 2026-11-24 (bought ~$1 on Aerodrome) |
+| M3 | Create the GitHub repo | ✅ 2026-11-24 |
 | M4 | Create MongoDB Atlas free cluster | ⬜ |
 | M5 | Create a Coinbase Developer Platform (CDP) account + API keys | ⬜ |
 | M6 | Get a Base mainnet RPC URL | ⬜ |

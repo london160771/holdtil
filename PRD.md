@@ -303,6 +303,7 @@ No extra MVP endpoints beyond this table.
 | 2026-11-24 | Budget ≈ $10: holdtil.xyz ($1.49), free hosting, ~$8 onchain test money | Owner budget |
 | 2026-11-24 | Stack: React + Bootstrap, Node/Express, MongoDB Atlas, viem | Owner stack; no Tailwind |
 | 2026-11-24 | Owner deploys; agents never deploy | Owner rule |
+| 2026-11-24 | Gate 0 #6 passed: owner holds NVDAc from Nigeria | Bought ~$1 NVDAc via Aerodrome |
 
 ---
 
@@ -559,7 +560,7 @@ Phases run back to back. An agent stops only for: a manual task, missing env val
 
 | # | Question | Owner | Decide by |
 |---|---|---|---|
-| 1 | Can the owner hold NVDAc from Nigeria? | Adesope | Nov 26 |
+| 1 | Can the owner hold NVDAc from Nigeria? **Yes — bought on Aerodrome 2026-11-24** | Adesope | done |
 | 2 | Is @holdtil free on X? | Adesope | Nov 25 |
 | 3 | Can one project enter two tracks? | Adesope (partner Telegram) | Dec 5 |
 | 4 | Default limits for new users (floor, target, daily) | Adesope + Claude | Phase 2 |
