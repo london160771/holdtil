@@ -33,7 +33,14 @@ Holdtil never holds your funds or keys. It can only use the Spend Permission you
 **Not for US persons. Not financial advice. Stocks can go down.**
 
 ## Run it locally
-[Commands added in Phase 0.]
+Needs Node 22+. Copy the `.env.example` files and fill in your own values (never commit them).
+
+```bash
+npm install
+npm run dev        # API on :3001, app on :5173
+npm run verify     # lint + tests + build
+npm run test:fork  # checks against real Base mainnet state (simulation only, sends nothing)
+```
 
 ## Known limits
 [Added as found.]

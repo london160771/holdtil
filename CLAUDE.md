@@ -30,15 +30,16 @@ Live in **PRD §16**. Treat as settled. Reopen only with new evidence.
 
 ## 4. Commands
 
-Run from the repo root. Never guess a command — read `package.json`. (Fill in during Phase 0.)
+Run from the repo root. Never guess a command — read `package.json`. Node ≥ 22. Workspaces: `server/`, `client/`, `scout/`.
 
 ```bash
 npm install            # install all workspaces
-npm run dev            # client + server locally
-npm test               # unit + API tests
-npm run test:fork      # fork tests against a local Base mainnet fork (Anvil)
+npm run dev            # API on :3001 + client on :5173
+npm test               # unit + API tests (no network)
+npm run test:fork      # Base mainnet state via eth_simulateV1 (needs BASE_RPC_URL + network; sends nothing)
+npm run gate0          # full Gate 0 report as JSON (needs BASE_RPC_URL; CDP keys for the spender step)
 npm run lint           # zero warnings
-npm run build          # production build
+npm run build          # production build (client)
 npm run verify         # lint + test + build — the gate
 ```
 
@@ -75,7 +76,7 @@ P0 / P1 / Never: **PRD §26**. Screens: **PRD §21**. Endpoints: **PRD §14**.
 - Global pause, per-user Stop, per-agent pause, and revoked permissions all block the next tick (INV-7).
 
 **Rollout order — never skip a step**
-1. Read-only → 2. Dry run (log what it would do) → 3. Fork tests (Anvil on Base mainnet fork) → 4. Mainnet with $1 limits, owner's account only → 5. Real users with small default limits.
+1. Read-only → 2. Dry run (log what it would do) → 3. Fork tests (Base mainnet state via `eth_simulateV1`; Anvil only for non-B20 parts — PRD §16) → 4. Mainnet with $1 limits, owner's account only → 5. Real users with small default limits.
 
 **Human approval**
 - The owner approves the **first real mainnet transaction of every new feature**. Stop and ask (section 10).
@@ -108,7 +109,15 @@ All in **PRD §11** (INV-1 to INV-7, state machine, error codes). Every one hold
 - Vite: any `VITE_` env var ships to the browser. Secrets stay server-side, unprefixed.
 - Express: async errors must reach the error handler. Check the installed major version.
 - Render free tier sleeps; the tick must be safe to run late or twice.
-- [Add Base Account SDK, x402 client and Spend Permission gotchas as found.]
+- **B20 stocks are precompiles.** No bytecode (code `0xef`). Anvil forks can't run them (`OpcodeNotFound`). Test B20 flows with `eth_simulateV1` on a real Base node (see `server/scripts/gate0/spend-batch-sim.js`).
+- NVDAc has **8 decimals**, USDC 6, the NVDA feed 8. Read decimals on chain anyway.
+- Coinbase stock feeds report **total-return value per token** (price × multiplier): compare the feed answer directly to the DEX price per token.
+- Spend Permissions: the user's smart wallet must have the Spend Permission Manager as an owner. Spender batch = `approveWithSignature` (first time only) + `spend` + `approve(router)` + `exactInputSingle(recipient = agent wallet, amountOutMinimum)`.
+- Smart-wallet signatures: owner signs the wallet's replay-safe hash (EIP-712 "Coinbase Smart Wallet" domain), wrapped as `(ownerIndex, signatureData)`.
+- Base Account SDK docs moved to CDP ("Coinbase Wallet SDK"); the package is still `@base-org/account`.
+- x402stock.xyz uses x402 **v2** (`payment-required` header, base64 JSON, `exact` scheme, `eip155:8453`). Use `@x402/fetch` + `@x402/evm`.
+- CDP SDK reads `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET` from env. "Project has no secret" = no Wallet Secret registered in that CDP project.
+- ESLint 10 flat config tracks JSX usage itself; no React plugin needed.
 
 ## 10. Workflow — continuous phases, stop only when needed
 

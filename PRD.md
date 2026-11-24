@@ -271,7 +271,7 @@ No extra MVP endpoints beyond this table.
 | Aerodrome (or aggregator, per Gate 0) | Stock → USDC swap with min-out | `server/src/chain/swap.js` |
 | x402 | How agents pay; Scout pays x402stock | `scout/*` |
 
-- **Evaluated and rejected:** [fill after Gate 0]
+- **Evaluated and rejected:** Anvil fork for B20 flows (can't run B20 precompiles); 0x / aggregator API (not needed: direct Aerodrome pool is deep enough for small refills, and one fewer API key); the Chainlink 24/7 NVDA feed (we want the 24/5 reference so weekends read as stale and we wait).
 - **Upstream contribution:** none planned.
 
 ---
@@ -289,7 +289,22 @@ No extra MVP endpoints beyond this table.
 - **Option A (ideal):** CDP Server Wallet smart account as spender; batch calls; Aerodrome router direct.
 - **Option B (fallback):** Small audited-pattern executor contract owned by the spender that does pull + swap + send in one call; or an aggregator API (0x / 1inch) for the swap.
 - **Acceptance:** all 6 pass with raw evidence (fork logs, tx hashes).
-- **Result:** [PENDING]
+- **Result (2026-11-24): Option A chosen. Premises 1–6 pass** in simulation / read / dry run. Raw report: `docs/gate0/2026-11-24-gate0-report.json` (re-run: `npm run gate0`). The "one tiny real tx with owner approval" is moved to the owner-approved stops already planned: permission signing (Phase 2) and the $1 refill (Phase 3), because a real tx needs the owner's Base Account and the CDP spender.
+
+| # | Premise | Result | Evidence (Base mainnet, 2026-11-24) |
+|---|---|---|---|
+| 1 | Spend Permission on NVDAc spent by our spender | Pass (simulated) | `approveWithSignature` + `spend` on NVDAc succeeded inside the batch (block 61760759). Revoked, over-allowance and wrong-spender all reverted. |
+| 2 | Pull → swap (min-out) → USDC to agent in one atomic batch | Pass (simulated) | Smart-wallet `executeBatch`: user 0.05→0.04 NVDAc, agent got 1.530096 USDC (min-out 1.522445), spender kept 0. Min-out above quote → `Too little received`, whole batch reverted, user kept all NVDAc. |
+| 3 | Fresh Chainlink NVDA reference with timestamp | Pass (real read) | Feed `0x0468…8513` "Coinbase NVDA", 8 dec, answer 153.54255219, updatedAt 17:29:23Z, age 1164 s at block 61760758. Same feed as Coinbase API `/nav-feeds`. |
+| 4 | Executable DEX quote for a small sale | Pass (real quote + simulated swap) | Aerodrome Slipstream pool `0x853F…7ab9` (tick spacing 10, 0.05% fee, ~1,780 NVDAc / ~18,740 USDC): 0.01 NVDAc → 1.530096 USDC, gap 34 bps vs reference. |
+| 5 | x402 client can pay x402stock.xyz from a plain wallet | Pass (dry) | 402 asks x402 v2 `exact`, `eip155:8453`, USDC, 30000 ($0.03). A real signed payment from an empty throwaway wallet was refused only with `insufficient_funds`. No money moved. |
+| 6 | Owner can hold NVDAc from Nigeria | Pass (manual) | Owner bought ~$1 NVDAc on Aerodrome. |
+
+**Gate 0 findings that change how we build (evidence above):**
+- **Anvil cannot run B20 tokens.** B20 stocks are Base-native precompiles (code `0xef`). On an Anvil fork every NVDAc call fails with `EVM error OpcodeNotFound` (anvil 1.5.1-stable). Chainlink and Aerodrome reads work on Anvil. So "fork tests" for anything that touches a B20 token run as `eth_simulateV1` on a real Base node (state overrides, nothing broadcast). `npm run test:fork` does this.
+- **The reference feed is per token.** Coinbase feeds report total-return value (underlying price × multiplier), so the feed answer compares directly with the DEX price per NVDAc. No extra multiplier math in the price guard; still read balances fresh (CLAUDE.md §9).
+- **Swap venue:** Aerodrome Slipstream "Gauges V3" deployment (router + quoter in `addresses.js`). The deep NVDAc/USDC pool lives there. Other NVDAc pools (v2, tick spacings 1 and 200) hold only dust.
+- **CDP spender:** CDP smart accounts are Coinbase Smart Wallet v1.1 (same factory as Base Accounts). Creating the dev spender is blocked by a CDP setup step (see PROJECT_STATE §1).
 
 **Resolved decisions — do not re-litigate:**
 
@@ -304,6 +319,11 @@ No extra MVP endpoints beyond this table.
 | 2026-11-24 | Stack: React + Bootstrap, Node/Express, MongoDB Atlas, viem | Owner stack; no Tailwind |
 | 2026-11-24 | Owner deploys; agents never deploy | Owner rule |
 | 2026-11-24 | Gate 0 #6 passed: owner holds NVDAc from Nigeria | Bought ~$1 NVDAc via Aerodrome |
+| 2026-11-24 | Gate 0 passed; Option A (CDP smart account spender, batch calls, Aerodrome router direct) | See Gate 0 result above |
+| 2026-11-24 | B20 flows are tested with `eth_simulateV1` on Base mainnet state, not Anvil | Anvil fork: NVDAc `decimals()` → `EVM error OpcodeNotFound`; Base node runs it fine |
+| 2026-11-24 | Reference price = Chainlink "Coinbase NVDA" 24/5 feed `0x04689a41629776563E6822F76f2e57D148d28513` | Listed for NVDAc by Coinbase API `/v1/tokenized-stocks/nav-feeds` and Chainlink directory |
+| 2026-11-24 | Swap venue = Aerodrome Slipstream Gauges V3 pool `0x853F5f1B92b16714Fe6CDA67CAad0856B83C7ab9` | Only NVDAc pool with real liquidity (checked on chain via official factories) |
+| 2026-11-24 | Base Account SDK docs moved to CDP ("Coinbase Wallet SDK"); package is still `@base-org/account` | docs.base.org/sdks/migrated-products |
 
 ---
 
@@ -352,7 +372,7 @@ No seeded demo. The live proof is **Holdtil Scout** running on mainnet from Phas
 
 - **Core unit tests:** price guard (fresh/stale, gap edges), limits (every limit, day rollover), planner math in base units, state machine (all legal + illegal transitions).
 - **Concurrency test:** two parallel ticks → one refill (INV-4).
-- **Fork tests (Anvil on Base mainnet fork):** full refill batch; revoked permission; min-out revert; wrong destination rejected.
+- **Fork tests (Base mainnet state via `eth_simulateV1`; Anvil cannot run B20 — §16):** full refill batch; revoked permission; min-out revert; wrong destination rejected.
 - **API tests:** auth nonce/verify/replay; validation; ownership (user A can't touch user B's agent).
 - **Manual checks:** first real refill with owner approval; Scout run; 390px screens.
 - Test counts are reported only after they pass.
@@ -447,7 +467,7 @@ Phases run back to back. An agent stops only for: a manual task, missing env val
 - **Goal:** Repo runs; all 6 Gate 0 premises proven or Option B chosen.
 - **Scope:** monorepo (`client/`, `server/`, `scout/`), lint/test/verify scripts, env example files, `addresses.js` with official sources, Gate 0 scripts under `server/scripts/gate0/` on an Anvil mainnet fork.
 - **Acceptance:** `npm run verify` passes; Gate 0 results with raw evidence in §16.
-- **Tests:** fork scripts for premises 1–4; x402 dry check for 5.
+- **Tests:** fork scripts for premises 1–4 (B20 parts via `eth_simulateV1`, see §16); x402 dry check for 5.
 - **Manual stops:** GitHub repo, MongoDB Atlas, CDP account + keys, RPC URL, owner wallet funding, eligibility check, Stocks Maxxing application.
 - **Review:** — (Opus review of Gate 0 result)
 
@@ -517,6 +537,8 @@ Phases run back to back. An agent stops only for: a manual task, missing env val
 | Render free tier sleeps | Medium | cron-job.org pings `/internal/tick` every 5 min |
 | Budget ($10) runs out | Medium | Tiny amounts; free tiers; no LLM required |
 | Rules or judging criteria change | Medium | Watch Base page + partner Telegram |
+| Owner's wallet can't sign spend permissions (CDP docs: "Spend Permissions in Coinbase Wallet (formerly Base App) are coming soon") | Critical | Check in Phase 2 which wallet holds the owner's NVDAc; Base Account (keys.coinbase.com) path first; Option B executor if needed |
+| NVDAc pool is small (~$18.7k USDC side) | Medium | Gap guard + min-out; small refills |
 
 ---
 
@@ -565,3 +587,4 @@ Phases run back to back. An agent stops only for: a manual task, missing env val
 | 3 | Can one project enter two tracks? | Adesope (partner Telegram) | Dec 5 |
 | 4 | Default limits for new users (floor, target, daily) | Adesope + Claude | Phase 2 |
 | 5 | Exact deadline time on Dec 12 | Adesope (partner Telegram) | Dec 1 |
+| 6 | Which wallet holds your NVDAc: Base Account (passkey, keys.coinbase.com), Coinbase Wallet app, or another wallet? Spend permissions need a Coinbase Smart Wallet / Base Account | Adesope | Phase 2 |

@@ -1,0 +1,166 @@
+{
+  "at": "2026-11-24T17:48:47.107Z",
+  "steps": [
+    {
+      "name": "#3 + #4 price feed and DEX quote",
+      "ok": true,
+      "result": {
+        "blockNumber": "61760758",
+        "blockTime": "2026-11-24T17:48:47.000Z",
+        "token": {
+          "address": "0xb20000000000000000000078ee7ce2fE4908108C",
+          "decimals": 8
+        },
+        "usdcDecimals": 6,
+        "feed": {
+          "address": "0x04689a41629776563E6822F76f2e57D148d28513",
+          "description": "Coinbase NVDA",
+          "decimals": 8,
+          "roundId": "36893488147419105060",
+          "answer": "15354255219",
+          "updatedAt": "2026-11-24T17:29:23.000Z",
+          "ageSec": "1164",
+          "fresh": true
+        },
+        "quote": {
+          "quoter": "0x514c8B5f54112481E28028F1166Bd78501089259",
+          "pool": "0x853F5f1B92b16714Fe6CDA67CAad0856B83C7ab9",
+          "amountIn": "1000000",
+          "usdcOut": "1530096",
+          "quotePrice": "15300960000",
+          "gapBps": "34"
+        }
+      }
+    },
+    {
+      "name": "#1 + #2 spend permission + atomic batch (simulated)",
+      "ok": true,
+      "result": {
+        "method": "eth_simulateV1 on Base mainnet state (nothing broadcast)",
+        "blockNumber": "61760759",
+        "blockTime": "2026-11-24T17:48:47.000Z",
+        "actors": {
+          "userWallet": "0x2bA9cD20d272b469Bed1b31e5DE541a2Bfd2B1dd",
+          "spender": "0xD765Ac38bf1E1AEd9adD28EeCfB4DDd4954c1705",
+          "agentWallet": "0xd16a786695Ec0044b7eB64b52fd2cC8cF502Dd20",
+          "spenderIsCdp": false
+        },
+        "permission": {
+          "token": "0xb20000000000000000000078ee7ce2fE4908108C",
+          "allowance": "2000000",
+          "period": 86400,
+          "hash": "0x6a120368ca187969ca58d5b8bea22a1582720b17a9ff4366979694e7644fa8f7"
+        },
+        "amounts": {
+          "funded": "5000000",
+          "amount": "1000000",
+          "quotedOut": "1530096",
+          "minOut": "1522445"
+        },
+        "scenarios": {
+          "happy": {
+            "setupOk": true,
+            "batch": {
+              "status": "success",
+              "gasUsed": "411844",
+              "error": null
+            },
+            "balances": {
+              "agentUsdc": "1530096",
+              "userNvdac": "4000000",
+              "spenderNvdac": "0",
+              "spenderUsdc": "0"
+            },
+            "pass": true
+          },
+          "minOutTooHigh": {
+            "batch": {
+              "status": "reverted",
+              "gasUsed": "469195",
+              "error": "execution reverted: Too little received"
+            },
+            "balances": {
+              "agentUsdc": "0",
+              "userNvdac": "5000000",
+              "spenderNvdac": "0",
+              "spenderUsdc": "0"
+            },
+            "pass": true
+          },
+          "revoked": {
+            "approveOk": true,
+            "revokeOk": true,
+            "batch": {
+              "status": "reverted",
+              "gasUsed": "46156",
+              "error": "execution reverted"
+            },
+            "balances": {
+              "agentUsdc": "0",
+              "userNvdac": "5000000",
+              "spenderNvdac": "0",
+              "spenderUsdc": "0"
+            },
+            "pass": true
+          },
+          "overAllowance": {
+            "batch": {
+              "status": "reverted",
+              "gasUsed": "109694",
+              "error": "execution reverted"
+            },
+            "balances": {
+              "agentUsdc": "0",
+              "userNvdac": "5000000",
+              "spenderNvdac": "0",
+              "spenderUsdc": "0"
+            },
+            "pass": true
+          },
+          "wrongSpender": {
+            "call": {
+              "status": "reverted",
+              "gasUsed": "27130",
+              "error": "execution reverted"
+            },
+            "balances": {
+              "agentUsdc": "0",
+              "userNvdac": "5000000",
+              "spenderNvdac": "0",
+              "spenderUsdc": "0"
+            },
+            "pass": true
+          }
+        },
+        "pass": true
+      }
+    },
+    {
+      "name": "#5 x402 dry check",
+      "ok": true,
+      "result": {
+        "url": "https://x402stock.xyz/api/v1/market-pulse",
+        "at": "2026-11-24T17:48:48.221Z",
+        "unpaidStatus": 402,
+        "requirement": {
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "amountAtomic": "30000",
+          "payTo": "0x3070Fbb3803819fB5BdfE9286fdc6325A877fA85"
+        },
+        "throwawayAddress": "0x2D33b4c432D479D8af991c7A677C8caF2B8f38Cf",
+        "paidStatus": 402,
+        "serverReason": "insufficient_funds",
+        "serverError": "Payment rejected (insufficient_funds): contract call failed: unable to call contract: execution reverted",
+        "pass": true
+      }
+    },
+    {
+      "name": "CDP spender account (public addresses only)",
+      "ok": false,
+      "error": "Project has no secret. Please register a secret with the project."
+    }
+  ]
+}

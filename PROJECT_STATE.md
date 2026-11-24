@@ -3,22 +3,34 @@
 > Where the project actually stands. A progress log, not requirements (those live in `PRD.md`).
 > Update at the end of every phase. Only write what was verified. If this file and the repo disagree, the repo wins.
 
-**Last updated:** 2026-11-24 17:00 WAT · **By:** Claude · **Commit:** `[none yet]`
+**Last updated:** 2026-11-24 18:55 WAT · **By:** Claude · **Commit:** see §10 (Phase 0)
 
 ---
 
 ## 1. Right now
 
-- **Active phase:** Phase 0 — Foundation + Gate 0 (PRD §27), not started
-- **Status:** Docs written; waiting on owner manual tasks
-- **Next step:** Owner completes the manual tasks in §11 below, then Claude starts Phase 0
-- **Blocked by:** nothing. Dev env vars set in the Claude Code cloud environment (6 names in §9). M1 application due Dec 5; M4 MongoDB needed only at deploy.
+- **Active phase:** Phase 1 — Core engine (PRD §27)
+- **Status:** Phase 0 done (verify passes, Gate 0 passed with evidence). Starting Phase 1.
+- **Next step:** Build `server/src/core/*` + read-only adapters.
+- **Blocked by (does not block Phase 1):** M9 — CDP Wallet Secret. Needed before Phase 3 (refills). Guide below.
+
+**M9 — Register a CDP Wallet Secret for the dev project**
+- *What and why:* Creating Holdtil's spender account failed with CDP's message "Project has no secret. Please register a secret with the project." The spender is the account that sends refills. Without it, Phase 3 can't run.
+- *Steps:*
+  1. Open portal.cdp.coinbase.com and pick the **holdtil-dev** project (top-left project switcher).
+  2. In the left menu open **Server Wallet** (sometimes under "Wallets" → "Server Wallet").
+  3. Find **Wallet Secret** and click **Generate** (or "Create secret"). Copy it once; CDP shows it only once.
+  4. Make sure your API key (CDP_API_KEY_ID / CDP_API_KEY_SECRET) is from the **same** holdtil-dev project. If not, create a new Secret API key there too.
+  5. In claude.ai/code → environment selector → settings icon → Environment variables, set `CDP_WALLET_SECRET` to the new value (and the API key vars if you made new ones). Never paste it in chat.
+  6. Start a new session (env changes only reach new sessions).
+- *How to check it worked:* run `npm run gate0`. The last step "CDP spender account" shows `ok: true` with two public addresses and `isCoinbaseSmartWalletV11: true`.
+- *What happens next:* Claude records the dev spender's public address. You later send it a few cents of ETH for gas (separate guide in Phase 3).
 
 ## 2. Phase tracker
 
 | Phase (PRD §27) | Status | Verified on | Commit | Review |
 |---|---|---|---|---|
-| 0 — Foundation + Gate 0 | Not started | | | Opus review of Gate 0 |
+| 0 — Foundation + Gate 0 | Done | 2026-11-24 | see §10 | Gate 0 reviewed by Opus (orchestrator); passed |
 | 1 — Core engine | Not started | | | A |
 | 2 — Accounts, agents, permissions | Not started | | | — |
 | 3 — Refill executor | Not started | | | B |
@@ -31,18 +43,24 @@
 
 | Check | Command | Result | Date |
 |---|---|---|---|
-| Full gate | `npm run verify` | not run yet | |
-| Tests | `npm test` | not run yet | |
-| Fork tests | `npm run test:fork` | not run yet | |
-| UI at 390px | screenshot | not run yet | |
+| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 17 server tests, scout 0 tests, client build ok | 2026-11-24 |
+| Tests | `npm test` | 17 passed (4 files) | 2026-11-24 |
+| Fork tests | `npm run test:fork` | 2 passed (Gate 0 #1–#4 on Base mainnet state) | 2026-11-24 |
+| Gate 0 report | `npm run gate0` | #1–#5 pass; CDP spender step blocked (M9) | 2026-11-24 |
+| UI at 390px | Playwright screenshot | shell renders, no horizontal scroll (390 and 1280) | 2026-11-24 |
 
 ## 4. What works (verified)
 
-- Nothing built yet. Docs only.
+- Monorepo: `server/` (Express 5 + viem), `client/` (Vite + React 19 + Bootstrap 5), `scout/` (x402 client deps). `npm run verify` passes.
+- `GET /health` returns `{status:"ok", network:"base-mainnet", chainId:8453}` (API test).
+- `server/src/config/addresses.js` — every address with its official source; allowlist helper (INV-6) with tests.
+- Structured error codes from PRD §11 (`server/src/errors.js`).
+- Gate 0 scripts in `server/scripts/gate0/` and `scout/scripts/x402-dry-check.js` — all premises proven (PRD §16, report in `docs/gate0/`).
+- Client shell: `REAL · BASE MAINNET` banner + notices. No sign-in yet.
 
 ## 5. Real vs mocked right now
 
-See `REAL_VS_MOCKED.md`. Nothing built yet.
+See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainnet reads and simulations; no transaction was sent.
 
 ## 6. Live proof
 
@@ -52,7 +70,7 @@ See `REAL_VS_MOCKED.md`. Nothing built yet.
 | Proof page | none yet |
 | Network | Base mainnet (planned) |
 | Contracts / addresses | none deployed |
-| Real transactions | none yet |
+| Real transactions | none yet (Gate 0 sent nothing) |
 
 ## 7. Demo recordings (PRD §22)
 
@@ -67,17 +85,23 @@ See `REAL_VS_MOCKED.md`. Nothing built yet.
 ## 8. Known issues and limitations
 
 - Eligibility confirmed: owner bought and holds NVDAc from Nigeria (2026-11-24).
+- Anvil can't run B20 precompiles; B20 tests use `eth_simulateV1` (PRD §16).
+- CDP docs say spend permissions in the Coinbase Wallet app are "coming soon". We must confirm in Phase 2 that the owner's wallet (Base Account) can sign one (PRD §33 Q6).
+- NVDAc/USDC pool is small (~18.7k USDC side). Fine for small refills.
+- `npm audit`: 3 high-severity advisories inside `@coinbase/cdp-sdk`'s own nested `zod`/`abitype`. The only "fix" downgrades the SDK to 1.7.0. Left as is; re-check before launch (Checkpoint C).
+- Spender account not created yet (M9).
 
 ## 9. Handoff notes
 
 - **Read first:** `CLAUDE.md`, PRD sections for the active phase, then this file.
-- **Branch:** `main` · **Uncommitted work:** docs (first commit pending repo creation)
+- **Branch:** `claude/project-thread-uqb47q` (cloud session branch) · **Uncommitted work:** none after Phase 0 commit
 - **Env vars needed (names only, final list set in Phase 0):** `BASE_RPC_URL`, `MONGODB_URI`, `SESSION_SECRET`, `TICK_SECRET`, `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET` (all 6 set for dev on 2026-11-24); later: `MONGODB_URI` (Render only), `SCOUT_PRIVATE_KEY`
 - **Watch out for:** real money — follow CLAUDE.md §6.
 
 ## 10. Build log
 
 - **2026-11-24** — Project docs created (PRD, CLAUDE, PROJECT_STATE, ROADMAP, README, REAL_VS_MOCKED). Research and idea selection done in chat.
+- **2026-11-24 — Phase 0 done.** Files: root `package.json` (workspaces + scripts), `eslint.config.js`, `.gitignore`, `server/` (app, config, errors, tests, Gate 0 scripts, fork tests), `client/` (shell), `scout/` (x402 dry check), `.env.example` ×3, `docs/gate0/2026-11-24-gate0-report.json`. Tests: verify pass, 17 unit/API, 2 fork. Tx hashes: none. Env changes: none (names documented in `.env.example`). Limits: CDP spender blocked (M9). Next: Phase 1.
 
 ## 11. Manual tasks (owner)
 
@@ -93,6 +117,7 @@ Status: ⬜ to do · ✅ done
 | M6 | Get a Base mainnet RPC URL | ✅ 2026-11-24 (public RPC for dev) |
 | M7 | Check @holdtil on X and create it | ⬜ |
 | M8 | Buy holdtil.xyz (can wait until Phase 5) | ⬜ |
+| M9 | Register a CDP Wallet Secret in the holdtil-dev project (guide in §1) | ⬜ |
 
 **M1 — Apply to Stocks Maxxing**
 1. Open the application form from base.org/stocksmaxxing ("Apply Now").
