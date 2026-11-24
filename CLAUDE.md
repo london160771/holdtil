@@ -57,6 +57,7 @@ P0 / P1 / Never: **PRD §26**. Screens: **PRD §21**. Endpoints: **PRD §14**.
 **Keys and secrets**
 - Keys live only in env vars, set by the owner by hand. Never commit, print, log or paste them in chat. Separate dev and prod keys.
 - Never ask the owner to paste a private key into chat. Tell them which env var to set and where.
+- Cloud build sessions get **dev values only** from the Claude Code cloud environment. Prod values live only in Render (server) — see PROJECT_STATE §11 "Where env values go". Tests use an in-memory MongoDB; never connect dev sessions to the prod database.
 
 **Addresses**
 - Every contract address (stock tokens, USDC, router, Chainlink feeds, Spend Permission Manager) comes from an official source (base.org/stocks, Coinbase Tokenized Stocks API, Chainlink docs, Base docs), lives in `server/src/config/addresses.js` with the source link beside it.

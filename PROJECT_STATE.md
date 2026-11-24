@@ -114,18 +114,18 @@ Status: ⬜ to do · ✅ done
 1. Sign in at cloud.mongodb.com → create a **free (M0)** cluster.
 2. Database Access → add a user with a strong password. Network Access → allow `0.0.0.0/0` (needed for Render free tier).
 3. Connect → Drivers → copy the connection string.
-4. Put it in `server/.env` as `MONGODB_URI=` (Claude will create the `.env.example`). Do not paste it in chat.
-5. Check it worked: Claude's health check will report "db: ok".
+4. **Keep it for deploy.** It goes into Render's Environment settings when you deploy (Phase 5). The cloud build uses an in-memory test database, so it is not needed there.
+5. Check it worked: after deploy, `/health` reports "db: ok".
 
 **M5 — Coinbase Developer Platform**
 1. Sign in at portal.cdp.coinbase.com → create a project.
 2. API Keys → create a **Secret API key** → save the key ID and secret. Also create a **Wallet Secret** (Server Wallet).
-3. Put them in `server/.env` as `CDP_API_KEY_ID=`, `CDP_API_KEY_SECRET=`, `CDP_WALLET_SECRET=`. Do not paste them in chat.
+3. Make **two** keys: a `dev` key for the cloud build and a `prod` key for Render later. Put the dev ones in the cloud environment variables (see "Where env values go" below) as `CDP_API_KEY_ID=`, `CDP_API_KEY_SECRET=`, `CDP_WALLET_SECRET=`. Never paste them in chat.
 4. Check it worked: Claude's Gate 0 script will create the spender account and print only its public address.
 
 **M6 — Base RPC URL**
 1. Easiest: in the CDP portal, open Node → copy your Base mainnet RPC URL.
-2. Put it in `server/.env` as `BASE_RPC_URL=`.
+2. For the cloud build, the free public RPC is enough: `BASE_RPC_URL=https://mainnet.base.org` (no secret). Keep your CDP RPC URL for Render (prod).
 3. Check it worked: Claude's script prints the latest Base block number.
 
 **M7 — X account**
@@ -136,3 +136,14 @@ Status: ⬜ to do · ✅ done
 **M8 — Domain (later)**
 1. Buy `holdtil.xyz` (~$1.49 first year) on Vercel Domains or another registrar.
 2. In Phase 5 Claude will give you a short guide to point it at the Vercel project.
+
+### Where env values go
+
+| Where | What goes there | Who can see it |
+|---|---|---|
+| Claude Code cloud environment → Environment variables (claude.ai/code → environment selector → settings icon) | **Dev values only**: `BASE_RPC_URL=https://mainnet.base.org`, dev CDP keys, `SESSION_SECRET`/`TICK_SECRET` (random dev values) | You, and any session in that environment. Keep the environment personal (don't share it). |
+| Claude Code cloud environment → Network access | Custom: `mainnet.base.org`, `api.cdp.coinbase.com`, `x402stock.xyz` (+ tick "include default list") | — |
+| Render → service → Environment | **Prod values**: prod `MONGODB_URI`, prod CDP keys, CDP RPC URL, prod secrets | You only |
+| Vercel → project → Environment Variables | Only public `VITE_` values (API URL). Never secrets. | Public (ships to browsers) |
+
+Rules: prod keys never go into the cloud build environment. Dev spender wallet holds a few cents of ETH only. Env changes reach a running session only after it restarts or in a new session.
