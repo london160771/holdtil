@@ -12,7 +12,7 @@
 | **Application deadline** (H) | 2026-12-05, 11:59pm EST (= 2026-12-06, 05:59 WAT) |
 | **Official deadline** (H) | 2026-12-12 — no time given; rules default to UTC. Treat as 2026-12-12 00:00 UTC (01:00 WAT) to be safe |
 | **Internal cutoff** (H) | 2026-12-11, 12:00 WAT |
-| **Links** | Repo: [ ] · Live: [ ] (holdtil.xyz planned) · Video: [ ] · Public proof page: [ ] · X: @holdtil [ ] |
+| **Links** | Repo: https://github.com/london160771/holdtil · Live: [ ] (holdtil.xyz planned) · Video: [ ] · Public proof page: [ ] · X: @holdtil [ ] |
 
 > **This file is the only source of truth for requirements.** Agents read the relevant section before building and cite it (e.g. "PRD §11"). The PRD is corrected by evidence: when reality disagrees, fix this file and log it in §16.
 > This is a **real product on Base mainnet with real money**, not a judge demo. Real users sign up, sign in and use it.
