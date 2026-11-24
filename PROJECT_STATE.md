@@ -134,7 +134,7 @@ Status: ⬜ to do · ✅ done
 | M7 | Check @holdtil on X and create it | ⬜ |
 | M8 | Buy holdtil.xyz (can wait until Phase 5) | ⬜ |
 | M9 | Register a CDP Wallet Secret in the holdtil-dev project (guide in §1) | ✅ 2026-11-24 — dev spender created: smart account `0xb7F3c5F916359B303d3ecEbB39f47969444fd15B` (owner `0x806af4E9023Ddd6d218CCF6c6362485F475224cB`), Coinbase Smart Wallet v1.1 confirmed, not deployed, 0 ETH |
-| M10 | Create a Base Account (keys.coinbase.com) and move a few dollars of NVDAc into it. No ETH or USDC needed there | ⬜ |
+| M10 | Create a smart wallet and move a few dollars of NVDAc into it. No ETH or USDC needed there | 🟡 wallet created 2026-11-24: `0x406bd02d69f1f5d9850c330e7da8252b1a5f4c56` (EIP-7702 account running Coinbase Smart Wallet code; owners = itself + Spend Permission Manager). Simulated grant + spend of 0.01 NVDAc from it to our spender: success. Not funded yet. Still to confirm in Phase 2: the wallet app shows and signs a spend permission request |
 
 **M1 — Apply to Stocks Maxxing**
 1. Open the application form from base.org/stocksmaxxing ("Apply Now").
