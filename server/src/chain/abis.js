@@ -114,6 +114,36 @@ export const spendPermissionManagerAbi = [
   },
   {
     type: 'function',
+    name: 'isRevoked',
+    stateMutability: 'view',
+    inputs: [spendPermissionTuple],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'isApproved',
+    stateMutability: 'view',
+    inputs: [spendPermissionTuple],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'getCurrentPeriod',
+    stateMutability: 'view',
+    inputs: [spendPermissionTuple],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'start', type: 'uint48' },
+          { name: 'end', type: 'uint48' },
+          { name: 'spend', type: 'uint160' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'function',
     name: 'isValid',
     stateMutability: 'view',
     inputs: [spendPermissionTuple],

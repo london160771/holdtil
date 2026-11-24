@@ -4,8 +4,8 @@ Stated plainly. The UI banner always shows **`REAL · BASE MAINNET`**. There is 
 
 | Part | Real or mocked | Proof |
 |---|---|---|
-| Sign in with Base | Real (planned) | [ ] |
-| Spend Permissions | Real, Base mainnet (planned) | [ ] |
+| Sign in with Base | Real code, Base mainnet; tested with throwaway keys and smart-wallet signatures; not yet with a real user wallet | API + fork tests |
+| Spend Permissions | Signing + live status read from chain built; not yet signed with a real wallet. Nothing is spent until Phase 3 | API + fork tests |
 | Refills (stock → USDC → agent wallet) | Real, Base mainnet (planned) | [tx hashes] |
 | Receipts and decisions | Real, from DB + chain (planned) | [ ] |
 | Holdtil Scout x402 payments | Real, Base mainnet (planned) | [tx hashes] |
@@ -14,6 +14,6 @@ Stated plainly. The UI banner always shows **`REAL · BASE MAINNET`**. There is 
 
 **Fallbacks:** none. If a value can't be read, the UI shows "unavailable".
 
-**Not built yet:** every product feature — project started 2026-11-24. Phase 0 built the repo and proved Gate 0. This file is updated as each part goes live.
+**Not built yet:** refills, receipts, Scout, `/proof`. Phase 2 (sign in, agents, permissions) is built; refills come in Phase 3. This file is updated as each part goes live.
 
 This file, the UI banner, PRD §17 and the code agree. An honest "not yet" beats a fake green badge.

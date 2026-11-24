@@ -15,6 +15,9 @@ export const CODES = Object.freeze({
   illegal_transition: { retryable: false, nextAction: 'Bug: investigate the refill log' },
   invalid_input: { retryable: false, nextAction: 'Fix the input and try again' },
   not_found: { retryable: false, nextAction: 'Check the URL' },
+  onboarding_required: { retryable: false, nextAction: 'Confirm you are not a US person and accept the terms' },
+  permission_invalid: { retryable: false, nextAction: 'Sign the permission again from your Base Account' },
+  chain_unavailable: { retryable: true, nextAction: 'Try again shortly' },
   internal_error: { retryable: true, nextAction: 'Try again later' },
 });
 

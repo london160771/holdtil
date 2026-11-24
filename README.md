@@ -33,7 +33,7 @@ Holdtil never holds your funds or keys. It can only use the Spend Permission you
 **Not for US persons. Not financial advice. Stocks can go down.**
 
 ## Run it locally
-Needs Node 22+. Copy the `.env.example` files and fill in your own values (never commit them).
+Needs Node 22+ and a MongoDB (a free Atlas dev cluster is fine; never the prod one). Copy `server/.env.example` to `server/.env` and fill in your own values (never commit them). `npm run dev` reads `server/.env`.
 
 ```bash
 npm install

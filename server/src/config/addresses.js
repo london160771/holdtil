@@ -52,6 +52,7 @@ export const STOCKS = Object.freeze({
   NVDAc: {
     symbol: 'NVDAc',
     address: ADDRESSES.NVDAc,
+    decimals: 8, // read on chain 2026-11-24; for display only — money paths re-read decimals on chain
     feed: ADDRESSES.NVDA_USD_FEED,
     pool: POOLS.NVDAc_USDC,
   },

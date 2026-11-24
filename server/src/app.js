@@ -1,10 +1,42 @@
 import express from 'express';
-import { CHAIN_ID } from './config/addresses.js';
+import { recoverMessageAddress } from 'viem';
+import { CHAIN_ID, ADDRESSES } from './config/addresses.js';
 import { HoldtilError } from './errors.js';
+import { authRoutes } from './routes/auth.js';
+import { meRoutes } from './routes/me.js';
+import { agentRoutes } from './routes/agents.js';
+import { permissionRoutes } from './routes/permissions.js';
+import { readBalance } from './chain/balances.js';
+import { permissionHash, readPermissionStatus, verifyPermissionSignature } from './chain/spendPermission.js';
 
-export function createApp() {
+/** Chain functions the API uses, bound to one public client. Tests pass their own. */
+export function chainDeps(client) {
+  return {
+    verifySiwe: async ({ address, message, signature }) => {
+      // ERC-1271 / ERC-6492 aware (smart wallets, undeployed Base Accounts) — CLAUDE.md §9.
+      if (await client.verifyMessage({ address, message, signature })) return true;
+      // EIP-7702 accounts (code 0xef0100…) are still controlled by their own key. A plain signature from
+      // that key proves control. Only used for sign-in; permissions are checked exactly as the chain will.
+      const code = await client.getCode({ address });
+      if (!code || !code.toLowerCase().startsWith('0xef0100')) return false;
+      const recovered = await recoverMessageAddress({ message, signature });
+      return recovered.toLowerCase() === address.toLowerCase();
+    },
+    verifyPermissionSignature: (p, sig) => verifyPermissionSignature(client, p, sig),
+    permissionHash,
+    readPermissionStatus: (p, nowSec) => readPermissionStatus(client, p, nowSec),
+    readUsdcBalance: (addr) => readBalance(client, ADDRESSES.USDC, addr),
+  };
+}
+
+/**
+ * @param {{ db?: import('mongodb').Db, config?: object, chain?: object }} deps
+ * Without a db only /health works (used by the basic API test).
+ */
+export function createApp({ db, config, chain } = {}) {
   const app = express();
   app.disable('x-powered-by');
+  app.set('trust proxy', 1);
   app.use(express.json({ limit: '32kb' }));
 
   // PRD §14: GET /health
@@ -12,12 +44,23 @@ export function createApp() {
     res.json({ status: 'ok', network: 'base-mainnet', chainId: CHAIN_ID });
   });
 
+  if (db) {
+    app.use('/v1/auth', authRoutes({ db, config, chain }));
+    app.use('/v1/me', meRoutes({ db, config }));
+    app.use('/v1/agents', agentRoutes({ db, chain }));
+    app.use('/v1/permissions', permissionRoutes({ db, config, chain }));
+  }
+
   app.use((_req, _res, next) => next(new HoldtilError('not_found', 'Route not found', { status: 404 })));
 
   // Express 5 sends rejected async handlers here too.
   // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
     if (err instanceof HoldtilError) return res.status(err.status).json({ error: err.toJSON() });
+    if (err?.type === 'entity.parse.failed' || err?.type === 'entity.too.large') {
+      const e = new HoldtilError('invalid_input', 'Bad request body', { status: 400 });
+      return res.status(400).json({ error: e.toJSON() });
+    }
     console.error('[error]', err?.message);
     const e = new HoldtilError('internal_error', 'Something went wrong', { status: 500 });
     return res.status(500).json({ error: e.toJSON() });

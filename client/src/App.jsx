@@ -1,5 +1,11 @@
-// Phase 0 app shell: banner and notices only. Screens come in Phase 2 and 5 (PRD §21).
-const FLOW = 'FUND WITH STOCK → AGENT PAYS → FLOAT RUNS LOW → FAIR-PRICE REFILL → PRICE OFF? WAIT → OWNER STOPS IT ANYTIME';
+import { useCallback, useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
+import { api } from './api.js';
+import { short } from './format.js';
+import Landing from './pages/Landing.jsx';
+import Start from './pages/Start.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import Agent from './pages/Agent.jsx';
 
 export function Notices() {
   return (
@@ -9,23 +15,84 @@ export function Notices() {
   );
 }
 
-export default function App() {
+/** Loads the signed-in user. me === undefined while loading, null when signed out. */
+function useMe() {
+  const [me, setMe] = useState(undefined);
+  const reload = useCallback(async () => {
+    try {
+      setMe(await api('/v1/me'));
+    } catch (e) {
+      if (e.status === 401) setMe(null);
+      else setMe({ error: e.message });
+    }
+  }, []);
+  useEffect(() => {
+    reload();
+  }, [reload]);
+  return [me, reload];
+}
+
+function Header({ me, onSignOut }) {
+  return (
+    <header className="border-bottom">
+      <nav className="container d-flex align-items-center justify-content-between py-2" style={{ maxWidth: 960 }}>
+        <Link to={me?.user ? '/app' : '/'} className="fw-bold text-decoration-none text-body fs-5">
+          Holdtil
+        </Link>
+        {me?.user && (
+          <div className="d-flex align-items-center gap-2">
+            <span className="small text-body-secondary d-none d-sm-inline">{short(me.user.address)}</span>
+            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onSignOut}>
+              Sign out
+            </button>
+          </div>
+        )}
+      </nav>
+    </header>
+  );
+}
+
+function Shell() {
+  const [me, reload] = useMe();
+  const navigate = useNavigate();
+  const signOut = async () => {
+    await api('/v1/auth/logout', { method: 'POST' }).catch(() => {});
+    await reload();
+    navigate('/');
+  };
+
+  const gate = (el) => {
+    if (me === undefined) return <p className="text-body-secondary">Loading…</p>;
+    if (me?.error) return <div className="alert alert-danger">Could not load your account: {me.error}</div>;
+    if (!me) return <Navigate to="/" replace />;
+    return el;
+  };
+
   return (
     <>
       <div className="real-banner text-center py-1">REAL · BASE MAINNET</div>
-      <main className="container py-5" style={{ maxWidth: 720 }}>
-        <h1 className="fw-bold">Holdtil</h1>
-        <p className="lead">Your agent&apos;s money stays invested until it pays.</p>
-        <p className="flow">
-          <code>{FLOW}</code>
-        </p>
-        <div className="alert alert-secondary" role="status">
-          In development. Sign-in opens when it works on Base mainnet.
-        </div>
+      <Header me={me} onSignOut={signOut} />
+      <main className="container py-4" style={{ maxWidth: 960 }}>
+        <Routes>
+          <Route path="/" element={me?.user ? <Navigate to={me.user.onboarded ? '/app' : '/start'} replace /> : <Landing onSignedIn={reload} />} />
+          <Route path="/start" element={gate(<Start me={me} reload={reload} />)} />
+          <Route path="/app" element={gate(me?.user?.onboarded === false ? <Navigate to="/start" replace /> : <Dashboard me={me} reload={reload} />)} />
+          <Route path="/app/agents/:id" element={gate(<Agent />)} />
+          <Route path="*" element={<p>Page not found. <Link to="/">Go home</Link></p>} />
+        </Routes>
       </main>
-      <footer className="container pb-4" style={{ maxWidth: 720 }}>
+      <footer className="container pb-4" style={{ maxWidth: 960 }}>
+        <hr />
         <Notices />
       </footer>
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Shell />
+    </BrowserRouter>
   );
 }

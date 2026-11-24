@@ -335,6 +335,11 @@ No extra MVP endpoints beyond this table.
 | 2026-11-24 | Price guard refuses mismatched price units and incomplete Chainlink rounds (`price_stale`) | Review finding; fail closed |
 | 2026-11-24 | Phase 3 must: write the tx hash before broadcast; check stuck `sent` refills on chain; add the wrong-destination fork test (lab #7); show the reference floor in the executor simulation (Gate 0 sim used quote − 50 bps only) | Review findings carried forward |
 
+| 2026-11-24 | Agent limits: defaults floor $1, target $3, max per refill $2, daily $5 per agent, $10 per user. Hard caps: target $50, per refill $25, daily $50 per agent, $100 per user (`server/src/config/limits.js`) | Small safe defaults for rollout step 4–5 (CLAUDE.md §6) |
+| 2026-11-24 | Spend permissions accepted only if: account = signed-in user, spender = Holdtil spender, token on the allowlist, allowance > 0, period 1 h–31 d, lifetime ≤ 366 d, and the signature verifies on chain (ERC-1271/6492) | INV-6 and fail closed |
+| 2026-11-24 | Sessions: random token in an httpOnly `SameSite=Lax` cookie; only its sha256 is stored (7-day TTL). Production must serve `/v1` on the same origin as the app (Vercel rewrite to Render) | Lax cookies don't cross sites; avoids CORS + third-party cookie problems |
+| 2026-11-24 | Sign in with Base: nonce is one use (atomic delete), SIWE checks domain, URI = `APP_ORIGIN`, chain 8453. Verify with viem (ERC-1271/6492); if that fails and the address has EIP-7702 code (`0xef0100…`), accept plain ECDSA recovery equal to the address | Owner's smart wallet is a 7702 account (M10); its owner key is the address itself |
+| 2026-11-24 | `GET /v1/me` also returns `chain {chainId, spenderAddress, stocks}` (public values the app needs to request a permission). New error codes: `onboarding_required`, `permission_invalid`, `chain_unavailable`, `refill_expired` | Keeps addresses server-side as the one source (CLAUDE.md §6) |
 ---
 
 ## 17. Real vs mocked
