@@ -37,3 +37,10 @@ describe('read-only chain adapters (Base mainnet)', () => {
     await expect(readBalance(client, '0x0000000000000000000000000000000000000001', stock.pool.address)).rejects.toMatchObject({ code: 'invalid_input' });
   });
 });
+
+describe('quoteSell allowlist (INV-6)', () => {
+  it('refuses a pool outside the allowlist', async () => {
+    const bad = { ...stock, pool: { ...stock.pool, address: '0x2e39A9018330c8784956998185D23D9dB503d1F7' } };
+    await expect(quoteSell(client, bad, 1_000_000n)).rejects.toMatchObject({ code: 'invalid_input' });
+  });
+});

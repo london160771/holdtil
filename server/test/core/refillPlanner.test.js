@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planRefillUsdc, stockAmountForUsdc, usdcValue, minOut } from '../../src/core/refillPlanner.js';
+import { planRefillUsdc, stockAmountForUsdc, usdcValue, minOut, maxPayoutUsdc } from '../../src/core/refillPlanner.js';
 
 const D = { tokenDecimals: 8, usdcDecimals: 6, priceDecimals: 8 };
 const REF = 15_354_255_219n; // $153.54255219 (Gate 0 reading)
@@ -41,5 +41,22 @@ describe('refill planner', () => {
     // quote is good: quote floor wins
     const m2 = minOut({ stockAmount, quotedOut: 1_540_000n, refPrice: REF, ...D, slippageBps: 10n, maxGapBps: 100n });
     expect(m2).toBe(1_538_460n);
+  });
+
+  it('min-out refuses bad inputs instead of returning a tiny floor', () => {
+    const ok = { stockAmount: 1_000_000n, quotedOut: 1_500_000n, refPrice: REF, ...D, slippageBps: 50n, maxGapBps: 100n };
+    expect(() => minOut({ ...ok, slippageBps: 10_000n })).toThrow();
+    expect(() => minOut({ ...ok, maxGapBps: 10_000n })).toThrow();
+    expect(() => minOut({ ...ok, maxGapBps: -1n })).toThrow();
+    expect(() => minOut({ ...ok, quotedOut: -1n })).toThrow();
+    expect(() => minOut({ ...ok, stockAmount: 0n })).toThrow();
+    expect(() => minOut({ ...ok, refPrice: 0n })).toThrow();
+    expect(() => minOut({ ...ok, slippageBps: 50 })).toThrow();
+  });
+
+  it('max payout is the higher of quote and reference + gap (used for limits)', () => {
+    const args = { stockAmount: 1_000_000n, refPrice: REF, ...D, maxGapBps: 100n };
+    expect(maxPayoutUsdc({ ...args, quotedOut: 1_500_000n })).toBe(1_550_780n); // ceil(1_535_425 * 1.01)
+    expect(maxPayoutUsdc({ ...args, quotedOut: 1_600_000n })).toBe(1_600_000n);
   });
 });

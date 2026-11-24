@@ -9,10 +9,20 @@
 
 ## 1. Right now
 
-- **Active phase:** Phase 1 — Core engine (PRD §27): built, verify passes. In **Checkpoint A** review.
-- **Status:** Phase 0 + Phase 1 committed. Fresh-eyes review of the core engine runs, then findings are fixed.
-- **Next step:** Owner reads the Checkpoint A result, then Claude starts Phase 2 (accounts, agents, permissions).
-- **Blocked by:** Checkpoint A (CLAUDE.md §12) — owner go-ahead for Phase 2. M9 (CDP Wallet Secret) is needed before Phase 3; guide below.
+- **Active phase:** Phase 1 — Core engine: done. **Checkpoint A** review done and all findings fixed.
+- **Status:** Stopped at Checkpoint A (CLAUDE.md §10 item 4) for the owner.
+- **Next step:** Owner says "go" → Claude starts Phase 2 (accounts, agents, permissions).
+- **Blocked by:** owner go-ahead after Checkpoint A. M9 (CDP Wallet Secret) is needed before Phase 3; guide below.
+
+**Checkpoint A — what you need to do**
+- *What and why:* CLAUDE.md §12 asks for a fresh-eyes review after the core engine, and §10 says to stop there for you.
+- *Steps:*
+  1. Read the review result in §10 (build log) or the chat summary.
+  2. Reply "go" in the Holdtil thread to start Phase 2. Or name anything you want changed first.
+  3. Also answer PRD §33 Q6: which wallet holds your NVDAc (Base Account / Coinbase Wallet app / other)?
+- *Env vars:* none needed for Phase 2 in the cloud build (tests use in-memory MongoDB).
+- *How to check it worked:* the thread shows Phase 2 starting.
+- *What happens next:* Phase 2 builds Sign in with Base, onboarding, agents and permission signing. It ends with a stop for you to sign a real spend permission on mainnet (signing only, no spend).
 
 **M9 — Register a CDP Wallet Secret for the dev project**
 - *What and why:* Creating Holdtil's spender account failed with CDP's message "Project has no secret. Please register a secret with the project." The spender is the account that sends refills. Without it, Phase 3 can't run.
@@ -31,7 +41,7 @@
 | Phase (PRD §27) | Status | Verified on | Commit | Review |
 |---|---|---|---|---|
 | 0 — Foundation + Gate 0 | Done | 2026-11-24 | `1115b8c` | Gate 0 reviewed by Opus (orchestrator); passed |
-| 1 — Core engine | Built, in review | 2026-11-24 | see §10 | A (in progress) |
+| 1 — Core engine | Done | 2026-11-24 | `91ab9a5` + review fixes (see §10) | A done; 9 findings fixed or carried to Phase 3 |
 | 2 — Accounts, agents, permissions | Not started | | | — |
 | 3 — Refill executor | Not started | | | B |
 | 4 — Holdtil Scout + proof page | Not started | | | — |
@@ -43,9 +53,9 @@
 
 | Check | Command | Result | Date |
 |---|---|---|---|
-| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 60 server tests, scout 0 tests, client build ok | 2026-11-24 |
-| Tests | `npm test` | 60 passed (10 files), incl. 7 INV-4 concurrency tests on in-memory MongoDB | 2026-11-24 |
-| Fork tests | `npm run test:fork` | 7 passed (Gate 0 #1–#4 + read-only adapters on Base mainnet) | 2026-11-24 |
+| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 69 server tests, scout 0 tests, client build ok | 2026-11-24 |
+| Tests | `npm test` | 69 passed (10 files), incl. 10 DB tests on in-memory MongoDB | 2026-11-24 |
+| Fork tests | `npm run test:fork` | 8 passed (Gate 0 #1–#4 + read-only adapters on Base mainnet) | 2026-11-24 |
 | Read-only script | `npm run read-only` | printed real block, NVDA reference $152.77 (age 115 s), quote 0.01 NVDAc → 1.527935 USDC, gap 2 bps, balances | 2026-11-24 |
 | Gate 0 report | `npm run gate0` | #1–#5 pass; CDP spender step blocked (M9) | 2026-11-24 |
 | UI at 390px | Playwright screenshot | shell renders, no horizontal scroll (390 and 1280) | 2026-11-24 |
@@ -106,7 +116,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 
 - **2026-11-24** — Project docs created (PRD, CLAUDE, PROJECT_STATE, ROADMAP, README, REAL_VS_MOCKED). Research and idea selection done in chat.
 - **2026-11-24 — Phase 0 done.** Files: root `package.json` (workspaces + scripts), `eslint.config.js`, `.gitignore`, `server/` (app, config, errors, tests, Gate 0 scripts, fork tests), `client/` (shell), `scout/` (x402 dry check), `.env.example` ×3, `docs/gate0/2026-11-24-gate0-report.json`. Tests: verify pass, 17 unit/API, 2 fork. Tx hashes: none. Env changes: none (names documented in `.env.example`). Limits: CDP spender blocked (M9). Next: Phase 1. Commit `1115b8c`.
-- **2026-11-24 — Phase 1 built.** Files: `server/src/core/*` (money, priceGuard, limits, refillPlanner, stateMachine, decide), `server/src/db/refills.js`, `server/src/chain/*` (abis, client, priceFeed, balances, quote), `server/scripts/read-only.js`, tests in `server/test/core`, `server/test/db`, `server/test/fork/adapters.test.js`. Tests: verify pass, 60 unit/API/DB, 7 fork. Tx hashes: none. Env changes: none. PRD §11/§14/§16 updated (INV-4 includes `checked`; refill capping; min-out reference floor). Next: Checkpoint A review.
+- **2026-11-24 — Phase 1 built.** Files: `server/src/core/*` (money, priceGuard, limits, refillPlanner, stateMachine, decide), `server/src/db/refills.js`, `server/src/chain/*` (abis, client, priceFeed, balances, quote), `server/scripts/read-only.js`, tests in `server/test/core`, `server/test/db`, `server/test/fork/adapters.test.js`. Tests: verify pass, 60 unit/API/DB, 7 fork. Tx hashes: none. Env changes: none. PRD §11/§14/§16 updated (INV-4 includes `checked`; refill capping; min-out reference floor). Next: Checkpoint A review. Commit `91ab9a5`.
+- **2026-11-24 — Checkpoint A (fresh-eyes review, separate agent).** Findings: (1, critical, not live yet) `spentToday` skipped DB docs (Date/string shapes) → fixed, throws on unknown shapes, DB→core test added; (2) limits vs actual payout → `maxPayoutUsdc` added, PRD §16; (3) `minOut` input checks → added; (4) crash could lock an agent → `simulated→waited/blocked` + `recoverStaleRefills`; (5) price units / incomplete round → refused; (6) `moveRefill` field whitelist + bigint→string; (7) `quoteSell` allowlist; (8) missing tests → added; (9) Gate 0 sim lacks reference floor → carried to Phase 3. Tests after fixes: 69 unit/API/DB, 8 fork, verify pass.
 
 ## 11. Manual tasks (owner)
 

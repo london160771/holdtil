@@ -4,7 +4,7 @@ import { STATES, canTransition, transition, decisionStateFor } from '../../src/c
 const LEGAL = [
   ['planned', 'checked'], ['planned', 'waited'], ['planned', 'blocked'],
   ['checked', 'simulated'], ['checked', 'waited'], ['checked', 'blocked'],
-  ['simulated', 'sent'], ['sent', 'confirmed'], ['sent', 'failed'],
+  ['simulated', 'sent'], ['simulated', 'waited'], ['simulated', 'blocked'], ['sent', 'confirmed'], ['sent', 'failed'],
 ];
 
 describe('refill state machine (PRD §11)', () => {

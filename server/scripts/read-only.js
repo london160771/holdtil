@@ -22,7 +22,7 @@ const [tokenDec, usdcDec, ref] = await Promise.all([
 const amountIn = 10n ** BigInt(tokenDec - 2); // 0.01 NVDAc
 const q = await quoteSell(client, stock, amountIn);
 const quotePrice = quotePriceFromSwap({ amountIn, amountOut: q.amountOut, tokenDecimals: tokenDec, usdcDecimals: usdcDec, priceDecimals: ref.decimals });
-const guard = checkPrice({ refPrice: ref.answer, refUpdatedAt: ref.updatedAt, now: block.timestamp, quotePrice, maxPriceAgeSec: 3600n, maxGapBps: 100n });
+const guard = checkPrice({ refPrice: ref.answer, refUpdatedAt: ref.updatedAt, now: block.timestamp, quotePrice, maxPriceAgeSec: 3600n, maxGapBps: 100n, refDecimals: ref.decimals, quoteDecimals: ref.decimals, roundId: ref.roundId, answeredInRound: ref.answeredInRound });
 
 const iso = (sec) => new Date(Number(sec) * 1000).toISOString();
 console.log(`Block ${block.number} at ${iso(block.timestamp)}`);

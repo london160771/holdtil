@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { checkPrice, gapBps, quotePriceFromSwap } from '../../src/core/priceGuard.js';
 
-const base = { refPrice: 15_000_000_000n, refUpdatedAt: 1_000n, now: 1_100n, quotePrice: 15_000_000_000n, maxPriceAgeSec: 600n, maxGapBps: 100n };
+const base = { refPrice: 15_000_000_000n, refUpdatedAt: 1_000n, now: 1_100n, quotePrice: 15_000_000_000n, maxPriceAgeSec: 600n, maxGapBps: 100n, refDecimals: 8, quoteDecimals: 8 };
 
 describe('priceGuard (INV-2)', () => {
   it('passes a fresh, fair price', () => {
@@ -33,6 +33,17 @@ describe('priceGuard (INV-2)', () => {
     expect(checkPrice({ ...base, refUpdatedAt: 2_000n })).toMatchObject({ ok: false, code: 'price_stale' });
     expect(checkPrice({ ...base, quotePrice: 0n })).toMatchObject({ ok: false, code: 'price_gap_too_wide' });
     expect(checkPrice({ ...base, quotePrice: 1.5 })).toMatchObject({ ok: false, code: 'price_stale' });
+  });
+
+  it('refuses mismatched or unknown price units', () => {
+    expect(checkPrice({ ...base, quoteDecimals: 6 })).toMatchObject({ ok: false, code: 'price_stale' });
+    expect(checkPrice({ ...base, refDecimals: undefined, quoteDecimals: undefined })).toMatchObject({ ok: false, code: 'price_stale' });
+  });
+
+  it('refuses an incomplete Chainlink round', () => {
+    expect(checkPrice({ ...base, roundId: 5n, answeredInRound: 4n })).toMatchObject({ ok: false, code: 'price_stale' });
+    expect(checkPrice({ ...base, roundId: 5n, answeredInRound: 5n }).ok).toBe(true);
+    expect(checkPrice({ ...base, roundId: 5n })).toMatchObject({ ok: false, code: 'price_stale' });
   });
 
   it('weekend: Friday close read on Sunday is stale', () => {

@@ -8,7 +8,7 @@ export const TERMINAL_STATES = Object.freeze(['confirmed', 'failed', 'waited', '
 const NEXT = Object.freeze({
   planned: ['checked', 'waited', 'blocked'],
   checked: ['simulated', 'waited', 'blocked'],
-  simulated: ['sent'],
+  simulated: ['sent', 'waited', 'blocked'], // pause/revoke/crash between simulate and send
   sent: ['confirmed', 'failed'],
   confirmed: [],
   failed: [],

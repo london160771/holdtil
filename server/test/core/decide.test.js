@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { checkControls, checkSale } from '../../src/core/decide.js';
 
 const controls = { globalPause: false, userStopped: false, agentPaused: false, permissionStatus: 'active' };
-const price = { refPrice: 100n, refUpdatedAt: 10n, now: 20n, quotePrice: 100n, maxPriceAgeSec: 60n, maxGapBps: 100n };
+const price = { refPrice: 100n, refUpdatedAt: 10n, now: 20n, quotePrice: 100n, maxPriceAgeSec: 60n, maxGapBps: 100n, refDecimals: 8, quoteDecimals: 8 };
 const limits = { refillUsdc: 1n, maxPerRefillUsdc: 1n, agentSpentTodayUsdc: 0n, agentDailyLimitUsdc: 1n, userSpentTodayUsdc: 0n, userDailyLimitUsdc: 1n, stockAmount: 1n, allowanceRemaining: 1n };
 
 describe('controls (INV-7) and check order', () => {

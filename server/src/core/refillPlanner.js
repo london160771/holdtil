@@ -39,9 +39,37 @@ export function stockAmountForUsdc({ usdc, refPrice, tokenDecimals, usdcDecimals
  *  - reference floor: the reference value minus maxGapBps — so even if the pool moves after the
  *    quote, the swap reverts on chain rather than fill outside the user's fair-price limit (INV-2).
  */
+function assertBps(v, name) {
+  if (typeof v !== 'bigint' || v < 0n || v >= 10_000n) throw new RangeError(`${name} must be a bigint in [0, 10000)`);
+}
+
 export function minOut({ stockAmount, quotedOut, refPrice, tokenDecimals, usdcDecimals, priceDecimals, slippageBps, maxGapBps }) {
+  assertUnits(stockAmount, 'stockAmount');
+  assertUnits(quotedOut, 'quotedOut');
+  assertUnits(refPrice, 'refPrice');
+  assertBps(slippageBps, 'slippageBps');
+  assertBps(maxGapBps, 'maxGapBps');
+  if (stockAmount === 0n || refPrice === 0n) throw new RangeError('stockAmount and refPrice must be > 0');
   const quoteFloor = (quotedOut * (10_000n - slippageBps)) / 10_000n;
   const refValue = usdcValue({ stockAmount, price: refPrice, tokenDecimals, usdcDecimals, priceDecimals });
   const refFloor = ceilDiv(refValue * (10_000n - maxGapBps), 10_000n);
-  return max(quoteFloor, refFloor);
+  const out = max(quoteFloor, refFloor);
+  if (out <= 0n) throw new RangeError('min-out must be > 0');
+  return out;
+}
+
+/**
+ * The most USDC this sale should pay out, for the limit check (INV-3): the higher of the quote and
+ * the reference value plus maxGapBps. Limits are checked against this, not the planned USDC, so a
+ * buffer or a favourable quote can't push today's spend past the limit. A fill above this needs the
+ * pool to move past the fair-price band within the same block; that is a better price for the user
+ * and the confirmed amount still counts toward the next check.
+ */
+export function maxPayoutUsdc({ stockAmount, quotedOut, refPrice, tokenDecimals, usdcDecimals, priceDecimals, maxGapBps }) {
+  assertUnits(stockAmount, 'stockAmount');
+  assertUnits(quotedOut, 'quotedOut');
+  assertBps(maxGapBps, 'maxGapBps');
+  const refValue = usdcValue({ stockAmount, price: refPrice, tokenDecimals, usdcDecimals, priceDecimals });
+  const refCeil = ceilDiv(refValue * (10_000n + maxGapBps), 10_000n);
+  return max(quotedOut, refCeil);
 }

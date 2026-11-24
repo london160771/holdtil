@@ -8,18 +8,33 @@ export function utcDayKey(nowSec) {
   return new Date(Number(nowSec) * 1000).toISOString().slice(0, 10);
 }
 
+/** createdAt as unix seconds (bigint). Accepts a bigint or a Date (how the DB stores it). Throws on anything else. */
+export function toUnixSec(createdAt) {
+  if (typeof createdAt === 'bigint') return createdAt;
+  if (createdAt instanceof Date && !Number.isNaN(createdAt.getTime())) return BigInt(Math.floor(createdAt.getTime() / 1000));
+  throw new TypeError('createdAt must be a bigint (unix seconds) or a Date');
+}
+
+/** Money from a refill: bigint, or a decimal string as stored in MongoDB (INV-1). Throws on anything else. */
+export function toUnits(v, name) {
+  if (typeof v === 'bigint' && v >= 0n) return v;
+  if (typeof v === 'string' && /^\d+$/.test(v)) return BigInt(v);
+  throw new TypeError(`${name} must be a non-negative bigint or digit string`);
+}
+
 /**
  * USDC counted against today's limits: confirmed refills (actual usdcOut) plus in-flight
  * refills (planned amount, to be safe). Waited, blocked and failed refills count zero.
- * refills: [{ state, createdAt (unix sec bigint), plannedUsdc (bigint), usdcOut (bigint|null) }]
+ * Works on DB documents directly. Unknown shapes throw (never skipped), so a bad record blocks the sale.
+ * refills: [{ state, createdAt (Date | unix sec bigint), plannedUsdc, usdcOut? }]
  */
 export function spentToday(refills, nowSec) {
   const today = utcDayKey(nowSec);
   let total = 0n;
   for (const r of refills) {
-    if (utcDayKey(r.createdAt) !== today) continue;
-    if (r.state === 'confirmed') total += r.usdcOut ?? r.plannedUsdc;
-    else if (IN_FLIGHT.has(r.state)) total += r.plannedUsdc;
+    if (utcDayKey(toUnixSec(r.createdAt)) !== today) continue;
+    if (r.state === 'confirmed') total += toUnits(r.usdcOut ?? r.plannedUsdc, 'usdcOut');
+    else if (IN_FLIGHT.has(r.state)) total += toUnits(r.plannedUsdc, 'plannedUsdc');
   }
   return total;
 }

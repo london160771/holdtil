@@ -60,13 +60,51 @@ export async function createPlannedRefill(db, { agentId, tickId, plannedUsdc, no
  * Moves a refill to `to`. Uses the current state as a guard in the update filter, so two workers
  * can't both move the same refill. Clears `inFlight` on terminal states.
  */
+// Extra fields a transition may record. Money is stored as strings (INV-1).
+const MOVABLE_FIELDS = new Set(['stockAmount', 'usdcOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'txHash', 'reason']);
+
+function cleanFields(fields = {}) {
+  const out = {};
+  for (const [k, v] of Object.entries(fields)) {
+    if (!MOVABLE_FIELDS.has(k)) throw new HoldtilError('invalid_input', `field ${k} cannot be set by a transition`);
+    out[k] = typeof v === 'bigint' ? v.toString() : v;
+  }
+  return out;
+}
+
 export async function moveRefill(db, refill, to, opts = {}) {
+  const fields = cleanFields(opts.fields);
   const next = transition(refill, to, opts);
-  const set = { state: next.state, code: next.code, history: next.history, ...(opts.fields ?? {}) };
+  const set = { state: next.state, code: next.code, history: next.history, ...fields };
   const update = IN_FLIGHT_STATES.includes(to) ? { $set: set } : { $set: set, $unset: { inFlight: '' } };
   const res = await db.collection(REFILLS).updateOne({ refillId: refill.refillId, state: refill.state }, update);
   if (res.matchedCount !== 1) {
     throw new HoldtilError('illegal_transition', `refill ${refill.refillId} is no longer in state ${refill.state}`, { status: 409 });
   }
-  return { ...next, ...(opts.fields ?? {}) };
+  return { ...next, ...fields };
+}
+
+/**
+ * Crash recovery (review finding, PRD §16): refills stuck in planned/checked/simulated longer than
+ * `maxAgeMs` never reached the chain, so they move to `waited` with `refill_expired` and free the agent.
+ * Stuck `sent` refills are NOT touched here: they may be on chain. They are returned so the caller
+ * (Phase 3 tick) can look up the tx hash on chain before deciding.
+ */
+export async function recoverStaleRefills(db, { now = new Date(), maxAgeMs = 15 * 60_000 } = {}) {
+  const cutoff = new Date(now.getTime() - maxAgeMs);
+  const stale = await db.collection(REFILLS).find({ inFlight: true, createdAt: { $lt: cutoff } }).toArray();
+  const expired = [];
+  const stuckSent = [];
+  for (const doc of stale) {
+    if (doc.state === 'sent') {
+      stuckSent.push(doc);
+      continue;
+    }
+    try {
+      expired.push(await moveRefill(db, doc, 'waited', { code: 'refill_expired', at: now.toISOString() }));
+    } catch (e) {
+      if (e?.code !== 'illegal_transition') throw e; // someone else moved it first; fine
+    }
+  }
+  return { expired, stuckSent };
 }

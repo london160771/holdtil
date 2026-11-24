@@ -38,6 +38,24 @@ describe('limits (INV-3)', () => {
     expect(checkLimits({ ...ok, allowanceRemaining: -1n })).toMatchObject({ ok: false, code: 'limit_exceeded' });
   });
 
+  it('spentToday reads DB documents (Date createdAt, string money)', () => {
+    const now = BigInt(Date.UTC(2026, 10, 24, 12) / 1000);
+    const docs = [
+      { state: 'sent', createdAt: new Date(Date.UTC(2026, 10, 24, 1)), plannedUsdc: '5000000' },
+      { state: 'confirmed', createdAt: new Date(Date.UTC(2026, 10, 24, 2)), plannedUsdc: '1000000', usdcOut: '990000' },
+      { state: 'confirmed', createdAt: new Date(Date.UTC(2026, 10, 23, 2)), plannedUsdc: '1', usdcOut: '1' },
+    ];
+    expect(spentToday(docs, now)).toBe(5_990_000n);
+  });
+
+  it('spentToday throws on unknown shapes instead of skipping them', () => {
+    const now = 1_795_000_000n;
+    expect(() => spentToday([{ state: 'sent', createdAt: 'yesterday', plannedUsdc: 1n }], now)).toThrow();
+    expect(() => spentToday([{ state: 'sent', createdAt: 1_795_000_000, plannedUsdc: 1n }], now)).toThrow();
+    expect(() => spentToday([{ state: 'sent', createdAt: now, plannedUsdc: 1.5 }], now)).toThrow();
+    expect(() => spentToday([{ state: 'sent', createdAt: now, plannedUsdc: '-5' }], now)).toThrow();
+  });
+
   it('spentToday counts confirmed + in-flight from today only (UTC rollover)', () => {
     const now = BigInt(Date.UTC(2026, 10, 24, 12) / 1000);
     const yesterday = BigInt(Date.UTC(2026, 10, 23, 23, 59, 59) / 1000);

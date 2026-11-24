@@ -21,12 +21,22 @@ export function gapBps(quotePrice, refPrice) {
 
 /**
  * INV-2: sell only if the reference is fresh AND the quote is within maxGapBps of it.
- * All inputs bigint. Times are unix seconds. Unknown or odd data → no sale.
+ * All money/time inputs bigint; times are unix seconds. refDecimals and quoteDecimals (numbers) must
+ * match, so both prices are in the same units. roundId/answeredInRound, if given, must show a complete round.
+ * Unknown or odd data → no sale.
  * @returns {{ok:true, gapBps:bigint, ageSec:bigint} | {ok:false, code:string, reason:string, gapBps?:bigint, ageSec?:bigint}}
  */
-export function checkPrice({ refPrice, refUpdatedAt, now, quotePrice, maxPriceAgeSec, maxGapBps }) {
+export function checkPrice({ refPrice, refUpdatedAt, now, quotePrice, maxPriceAgeSec, maxGapBps, refDecimals, quoteDecimals, roundId, answeredInRound }) {
   for (const [k, v] of Object.entries({ refPrice, refUpdatedAt, now, quotePrice, maxPriceAgeSec, maxGapBps })) {
     if (typeof v !== 'bigint') return { ok: false, code: 'price_stale', reason: `${k} unavailable` };
+  }
+  if (!Number.isInteger(refDecimals) || refDecimals !== quoteDecimals) {
+    return { ok: false, code: 'price_stale', reason: 'reference and quote price units differ or are unknown' };
+  }
+  if (roundId !== undefined || answeredInRound !== undefined) {
+    if (typeof roundId !== 'bigint' || typeof answeredInRound !== 'bigint' || answeredInRound < roundId) {
+      return { ok: false, code: 'price_stale', reason: 'reference round incomplete' };
+    }
   }
   if (refPrice <= 0n || refUpdatedAt <= 0n) return { ok: false, code: 'price_stale', reason: 'reference unavailable' };
   const ageSec = now - refUpdatedAt;

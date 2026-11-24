@@ -171,7 +171,7 @@ Invariant form: every confirmed refill has `gapBps ≤ maxGapBps`, `priceAge ≤
 - **INV-6 (allowlists):** Only tokens, routers, feeds and the Spend Permission Manager listed in `server/src/config/addresses.js` (with source links) are ever called.
 - **INV-7 (control):** If global pause, user stop, agent pause, or revoked permission is set, no tx is sent.
 
-**Refill state machine:** `planned → checked → simulated → sent → {confirmed | failed}`, and `planned|checked → {waited | blocked}`. Illegal transitions throw. Every transition is logged with a timestamp. In-flight states (INV-4): `planned`, `checked`, `simulated`, `sent`.
+**Refill state machine:** `planned → checked → simulated → sent → {confirmed | failed}`, and `planned|checked|simulated → {waited | blocked}`. Illegal transitions throw. Every transition is logged with a timestamp. In-flight states (INV-4): `planned`, `checked`, `simulated`, `sent`.
 
 **Error / decision codes** (each with `retryable` and `nextAction`):
 
@@ -187,6 +187,7 @@ Invariant form: every confirmed refill has `gapBps ≤ maxGapBps`, `priceAge ≤
 | `tx_failed` | Tx reverted or not confirmed | yes | Investigate; alert |
 | `refill_in_flight` | Another refill active | yes | Skip this tick |
 | `auth_failed` | Bad signature / nonce | no | Sign in again |
+| `refill_expired` | Refill stuck in flight (before send) past the timeout | yes | Next tick tries again |
 
 ---
 
@@ -329,6 +330,10 @@ No extra MVP endpoints beyond this table.
 | 2026-11-24 | Swap min-out = max(quote − slippage, reference value − `maxGapBps`) | Puts the fair-price rule on chain too: if the pool moves after the quote, the swap reverts instead of filling unfairly |
 | 2026-11-24 | Spend-today counts confirmed refills (actual USDC out) + in-flight refills (planned USDC); days roll over at 00:00 UTC | Fail closed: in-flight money counts against the limit |
 | 2026-11-24 | Decision state: retryable codes → `waited`, others → `blocked` (so `simulation_failed` → `waited`) | Matches the retryable column in §11 |
+| 2026-11-24 | Checkpoint A fixes: `simulated → waited/blocked` allowed (pause, revoke or crash between simulate and send); stale `planned/checked/simulated` refills expire to `waited` (`refill_expired`) after 15 min; stale `sent` refills are only reported and must be checked on chain (Phase 3) | Fresh-eyes review: otherwise a crash locks an agent forever |
+| 2026-11-24 | Limits (INV-3) are checked against the most a sale can pay out: max(quote, reference value + `maxGapBps`), not the planned USDC | Review: buffer or a good quote could push a day past its limit. A fill above that bound needs the pool to jump past the fair band in the same block |
+| 2026-11-24 | Price guard refuses mismatched price units and incomplete Chainlink rounds (`price_stale`) | Review finding; fail closed |
+| 2026-11-24 | Phase 3 must: write the tx hash before broadcast; check stuck `sent` refills on chain; add the wrong-destination fork test (lab #7); show the reference floor in the executor simulation (Gate 0 sim used quote − 50 bps only) | Review findings carried forward |
 
 ---
 

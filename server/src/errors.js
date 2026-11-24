@@ -11,6 +11,7 @@ export const CODES = Object.freeze({
   tx_failed: { retryable: true, nextAction: 'Investigate; alert' },
   refill_in_flight: { retryable: true, nextAction: 'Skip this tick' },
   auth_failed: { retryable: false, nextAction: 'Sign in again' },
+  refill_expired: { retryable: true, nextAction: 'Stuck in flight too long; next tick tries again' },
   illegal_transition: { retryable: false, nextAction: 'Bug: investigate the refill log' },
   invalid_input: { retryable: false, nextAction: 'Fix the input and try again' },
   not_found: { retryable: false, nextAction: 'Check the URL' },
