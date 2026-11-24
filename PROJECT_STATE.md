@@ -35,7 +35,7 @@
 |---|---|---|---|---|
 | 0 — Foundation + Gate 0 | Done | 2026-11-24 | `1115b8c` | Gate 0 reviewed by Opus (orchestrator); passed |
 | 1 — Core engine | Done | 2026-11-24 | `91ab9a5` + review fixes (see §10) | A done; 9 findings fixed or carried to Phase 3 |
-| 2 — Accounts, agents, permissions | Built; owner mainnet check pending (P2-STOP) | 2026-11-24 | see §10 | — |
+| 2 — Accounts, agents, permissions | Built; owner mainnet check pending (P2-STOP) | 2026-11-24 | `7628b7b` | — |
 | 3 — Refill executor | Not started | | | B |
 | 4 — Holdtil Scout + proof page | Not started | | | — |
 | 5 — Product polish + launch | Not started | | | C |
