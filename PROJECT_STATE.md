@@ -12,7 +12,7 @@
 - **Active phase:** Phase 1 — Core engine: done. **Checkpoint A** review done and all findings fixed.
 - **Status:** Stopped at Checkpoint A (CLAUDE.md §10 item 4) for the owner.
 - **Next step:** Owner says "go" → Claude starts Phase 2 (accounts, agents, permissions).
-- **Blocked by:** owner go-ahead after Checkpoint A. M9 (CDP Wallet Secret) is needed before Phase 3; guide below.
+- **Blocked by:** owner go-ahead after Checkpoint A. M9 done. M10 (Base Account with NVDAc) needed before the end of Phase 2.
 
 **Checkpoint A — what you need to do**
 - *What and why:* CLAUDE.md §12 asks for a fresh-eyes review after the core engine, and §10 says to stop there for you.
@@ -103,7 +103,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - CDP docs say spend permissions in the Coinbase Wallet app are "coming soon". We must confirm in Phase 2 that the owner's wallet (Base Account) can sign one (PRD §33 Q6).
 - NVDAc/USDC pool is small (~18.7k USDC side). Fine for small refills.
 - `npm audit`: 3 high-severity advisories inside `@coinbase/cdp-sdk`'s own nested `zod`/`abitype`. The only "fix" downgrades the SDK to 1.7.0. Left as is; re-check before launch (Checkpoint C).
-- Spender account not created yet (M9).
+- Dev spender created (M9 done): `0xb7F3c5F916359B303d3ecEbB39f47969444fd15B`. Owner's NVDAc is in a plain EOA; needs a Base Account (M10).
 
 ## 9. Handoff notes
 
@@ -133,7 +133,8 @@ Status: ⬜ to do · ✅ done
 | M6 | Get a Base mainnet RPC URL | ✅ 2026-11-24 (public RPC for dev) |
 | M7 | Check @holdtil on X and create it | ⬜ |
 | M8 | Buy holdtil.xyz (can wait until Phase 5) | ⬜ |
-| M9 | Register a CDP Wallet Secret in the holdtil-dev project (guide in §1) | ⬜ |
+| M9 | Register a CDP Wallet Secret in the holdtil-dev project (guide in §1) | ✅ 2026-11-24 — dev spender created: smart account `0xb7F3c5F916359B303d3ecEbB39f47969444fd15B` (owner `0x806af4E9023Ddd6d218CCF6c6362485F475224cB`), Coinbase Smart Wallet v1.1 confirmed, not deployed, 0 ETH |
+| M10 | Create a Base Account (keys.coinbase.com) and move a few dollars of NVDAc into it. No ETH or USDC needed there | ⬜ |
 
 **M1 — Apply to Stocks Maxxing**
 1. Open the application form from base.org/stocksmaxxing ("Apply Now").
