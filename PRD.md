@@ -597,4 +597,4 @@ Phases run back to back. An agent stops only for: a manual task, missing env val
 | 3 | Can one project enter two tracks? | Adesope (partner Telegram) | Dec 5 |
 | 4 | Default limits for new users (floor, target, daily) | Adesope + Claude | Phase 2 |
 | 5 | Exact deadline time on Dec 12 | Adesope (partner Telegram) | Dec 1 |
-| 6 | Which wallet holds your NVDAc: Base Account (passkey, keys.coinbase.com), Coinbase Wallet app, or another wallet? Spend permissions need a Coinbase Smart Wallet / Base Account | Adesope | Phase 2 |
+| 6 | Which wallet holds your NVDAc? **Answer 2026-11-24: a plain EOA (no code, nonce 1648, holds 0.00685353 NVDAc).** An EOA can't grant Spend Permissions, which need a Coinbase Smart Wallet / Base Account. Plan: owner opens a Base Account and moves NVDAc there before the Phase 2 signing stop | Adesope | Phase 2 |
