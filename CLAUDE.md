@@ -145,7 +145,8 @@ Acts in **PRD §22**. Record each act the moment it works. Keep `/proof` live fr
 
 ## 13. Git
 
-- Commit and push each phase after it passes verification (owner's continuous mode). Plain conventional messages (`feat:`, `fix:`, `docs:`).
+- **Commit and push after every phase** once it passes verification (owner's continuous mode). Plain conventional messages (`feat:`, `fix:`, `docs:`). Report the commit hash.
+- Before each phase commit, update the right docs: `PROJECT_STATE.md` always; `PRD.md` only if a requirement or decision changed (log it in §16); `CLAUDE.md` if commands or gotchas changed; `ROADMAP.md` for new ideas; `README.md` + `REAL_VS_MOCKED.md` when what's real changes.
 - Never commit secrets or `.env` files. Check `git diff --staged` before every commit.
 - No destructive git commands. Don't manufacture history.
 
