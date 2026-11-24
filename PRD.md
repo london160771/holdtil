@@ -166,12 +166,12 @@ Invariant form: every confirmed refill has `gapBps ≤ maxGapBps`, `priceAge ≤
 - **INV-1 (money):** All amounts are integers in token base units (`bigint` in code, string in MongoDB). No floats in money math. USD values for display only.
 - **INV-2 (fair price):** A refill is sent only if the Chainlink reference is fresh (`age ≤ maxPriceAgeSec`) and `|quote − reference| / reference ≤ maxGapBps`.
 - **INV-3 (limits):** `refillUsd ≤ maxPerRefill`, `agentSpentToday + refillUsd ≤ agentDailyLimit`, `userSpentToday + refillUsd ≤ userDailyLimit`, and on-chain allowance remaining ≥ amount. All checked before simulation.
-- **INV-4 (single flight):** At most one refill per agent in `planned|simulated|sent` state. Enforced by a unique index, not by reading first.
+- **INV-4 (single flight):** At most one refill per agent in `planned|checked|simulated|sent` state. Enforced by a unique index, not by reading first.
 - **INV-5 (destination):** USDC from a refill can only go to the agent wallet registered by that user. The executor never accepts a destination from outside the DB record.
 - **INV-6 (allowlists):** Only tokens, routers, feeds and the Spend Permission Manager listed in `server/src/config/addresses.js` (with source links) are ever called.
 - **INV-7 (control):** If global pause, user stop, agent pause, or revoked permission is set, no tx is sent.
 
-**Refill state machine:** `planned → checked → simulated → sent → {confirmed | failed}`, and `planned|checked → {waited | blocked}`. Illegal transitions throw. Every transition is logged with a timestamp.
+**Refill state machine:** `planned → checked → simulated → sent → {confirmed | failed}`, and `planned|checked → {waited | blocked}`. Illegal transitions throw. Every transition is logged with a timestamp. In-flight states (INV-4): `planned`, `checked`, `simulated`, `sent`.
 
 **Error / decision codes** (each with `retryable` and `nextAction`):
 
@@ -229,7 +229,7 @@ Holdtil Scout (separate Node process) ── x402 ──► x402stock.xyz   (its
 - `users` — `address` (unique, lowercase), `notUsConfirmedAt`, `termsAcceptedAt`, `stoppedAt`, `dailyLimitUsd`, `createdAt`
 - `agents` — `userId`, `name`, `walletAddress`, `floorUsdc` (base units), `targetUsdc`, `maxPerRefillUsdc`, `dailyLimitUsdc`, `status` (`active|paused`), unique (`userId`,`walletAddress`)
 - `permissions` — `userId`, `token`, `allowance`, `periodSec`, `start`, `end`, `permissionHash` (unique), `signature`, `status`
-- `refills` — `refillId` (unique), `agentId`, `state`, `code`, `stockAmount`, `usdcOut`, `minOut`, `refPrice`, `refPriceAt`, `quotePrice`, `gapBps`, `txHash`, timestamps; partial unique index on `agentId` where `state ∈ {planned, simulated, sent}` (INV-4)
+- `refills` — `refillId` (unique), `agentId`, `state`, `code`, `stockAmount`, `usdcOut`, `minOut`, `refPrice`, `refPriceAt`, `quotePrice`, `gapBps`, `txHash`, timestamps; partial unique index on `agentId` where `inFlight: true`, set while `state ∈ {planned, checked, simulated, sent}` (INV-4)
 - `nonces` — `nonce` (unique), `address`, `expiresAt` (TTL)
 - `settings` — `globalPause`
 - `scoutRuns` — `runId`, `x402TxHash`, `costUsdc`, `summary`, `createdAt`
@@ -324,6 +324,11 @@ No extra MVP endpoints beyond this table.
 | 2026-11-24 | Reference price = Chainlink "Coinbase NVDA" 24/5 feed `0x04689a41629776563E6822F76f2e57D148d28513` | Listed for NVDAc by Coinbase API `/v1/tokenized-stocks/nav-feeds` and Chainlink directory |
 | 2026-11-24 | Swap venue = Aerodrome Slipstream Gauges V3 pool `0x853F5f1B92b16714Fe6CDA67CAad0856B83C7ab9` | Only NVDAc pool with real liquidity (checked on chain via official factories) |
 | 2026-11-24 | Base Account SDK docs moved to CDP ("Coinbase Wallet SDK"); package is still `@base-org/account` | docs.base.org/sdks/migrated-products |
+| 2026-11-24 | INV-4 covers every in-flight state: `planned`, `checked`, `simulated`, `sent` (§11 listed only three; `checked` is in flight too). Enforced by a partial unique index on `agentId` where `inFlight: true` | A refill in `checked` must also block a second refill; flag field is simpler than `$in` in a partial index |
+| 2026-11-24 | Refill size = `min(target − balance, maxPerRefill)` | Keeps INV-3 true instead of blocking forever when the gap is bigger than the per-refill max |
+| 2026-11-24 | Swap min-out = max(quote − slippage, reference value − `maxGapBps`) | Puts the fair-price rule on chain too: if the pool moves after the quote, the swap reverts instead of filling unfairly |
+| 2026-11-24 | Spend-today counts confirmed refills (actual USDC out) + in-flight refills (planned USDC); days roll over at 00:00 UTC | Fail closed: in-flight money counts against the limit |
+| 2026-11-24 | Decision state: retryable codes → `waited`, others → `blocked` (so `simulation_failed` → `waited`) | Matches the retryable column in §11 |
 
 ---
 

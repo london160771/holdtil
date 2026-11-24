@@ -3,16 +3,16 @@
 > Where the project actually stands. A progress log, not requirements (those live in `PRD.md`).
 > Update at the end of every phase. Only write what was verified. If this file and the repo disagree, the repo wins.
 
-**Last updated:** 2026-11-24 18:55 WAT · **By:** Claude · **Commit:** see §10 (Phase 0)
+**Last updated:** 2026-11-24 19:00 WAT · **By:** Claude · **Commit:** see §2 / §10
 
 ---
 
 ## 1. Right now
 
-- **Active phase:** Phase 1 — Core engine (PRD §27)
-- **Status:** Phase 0 done (verify passes, Gate 0 passed with evidence). Starting Phase 1.
-- **Next step:** Build `server/src/core/*` + read-only adapters.
-- **Blocked by (does not block Phase 1):** M9 — CDP Wallet Secret. Needed before Phase 3 (refills). Guide below.
+- **Active phase:** Phase 1 — Core engine (PRD §27): built, verify passes. In **Checkpoint A** review.
+- **Status:** Phase 0 + Phase 1 committed. Fresh-eyes review of the core engine runs, then findings are fixed.
+- **Next step:** Owner reads the Checkpoint A result, then Claude starts Phase 2 (accounts, agents, permissions).
+- **Blocked by:** Checkpoint A (CLAUDE.md §12) — owner go-ahead for Phase 2. M9 (CDP Wallet Secret) is needed before Phase 3; guide below.
 
 **M9 — Register a CDP Wallet Secret for the dev project**
 - *What and why:* Creating Holdtil's spender account failed with CDP's message "Project has no secret. Please register a secret with the project." The spender is the account that sends refills. Without it, Phase 3 can't run.
@@ -30,8 +30,8 @@
 
 | Phase (PRD §27) | Status | Verified on | Commit | Review |
 |---|---|---|---|---|
-| 0 — Foundation + Gate 0 | Done | 2026-11-24 | see §10 | Gate 0 reviewed by Opus (orchestrator); passed |
-| 1 — Core engine | Not started | | | A |
+| 0 — Foundation + Gate 0 | Done | 2026-11-24 | `1115b8c` | Gate 0 reviewed by Opus (orchestrator); passed |
+| 1 — Core engine | Built, in review | 2026-11-24 | see §10 | A (in progress) |
 | 2 — Accounts, agents, permissions | Not started | | | — |
 | 3 — Refill executor | Not started | | | B |
 | 4 — Holdtil Scout + proof page | Not started | | | — |
@@ -43,9 +43,10 @@
 
 | Check | Command | Result | Date |
 |---|---|---|---|
-| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 17 server tests, scout 0 tests, client build ok | 2026-11-24 |
-| Tests | `npm test` | 17 passed (4 files) | 2026-11-24 |
-| Fork tests | `npm run test:fork` | 2 passed (Gate 0 #1–#4 on Base mainnet state) | 2026-11-24 |
+| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 60 server tests, scout 0 tests, client build ok | 2026-11-24 |
+| Tests | `npm test` | 60 passed (10 files), incl. 7 INV-4 concurrency tests on in-memory MongoDB | 2026-11-24 |
+| Fork tests | `npm run test:fork` | 7 passed (Gate 0 #1–#4 + read-only adapters on Base mainnet) | 2026-11-24 |
+| Read-only script | `npm run read-only` | printed real block, NVDA reference $152.77 (age 115 s), quote 0.01 NVDAc → 1.527935 USDC, gap 2 bps, balances | 2026-11-24 |
 | Gate 0 report | `npm run gate0` | #1–#5 pass; CDP spender step blocked (M9) | 2026-11-24 |
 | UI at 390px | Playwright screenshot | shell renders, no horizontal scroll (390 and 1280) | 2026-11-24 |
 
@@ -57,6 +58,9 @@
 - Structured error codes from PRD §11 (`server/src/errors.js`).
 - Gate 0 scripts in `server/scripts/gate0/` and `scout/scripts/x402-dry-check.js` — all premises proven (PRD §16, report in `docs/gate0/`).
 - Client shell: `REAL · BASE MAINNET` banner + notices. No sign-in yet.
+- Core engine (pure, unit-tested): `core/priceGuard` (INV-2, fails closed), `core/limits` (INV-3 + UTC day spend), `core/refillPlanner` (size, stock amount, min-out with reference floor), `core/stateMachine` (legal/illegal transitions, history), `core/decide` (controls INV-7 → price → limits order).
+- `db/refills.js`: INV-4 single flight via partial unique index + idempotent refill IDs + state-guarded updates. Proven by concurrency tests (2 and 20 parallel ticks → 1 refill).
+- Read-only adapters: `chain/priceFeed`, `chain/balances`, `chain/quote` (allowlist-checked).
 
 ## 5. Real vs mocked right now
 
@@ -101,7 +105,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 ## 10. Build log
 
 - **2026-11-24** — Project docs created (PRD, CLAUDE, PROJECT_STATE, ROADMAP, README, REAL_VS_MOCKED). Research and idea selection done in chat.
-- **2026-11-24 — Phase 0 done.** Files: root `package.json` (workspaces + scripts), `eslint.config.js`, `.gitignore`, `server/` (app, config, errors, tests, Gate 0 scripts, fork tests), `client/` (shell), `scout/` (x402 dry check), `.env.example` ×3, `docs/gate0/2026-11-24-gate0-report.json`. Tests: verify pass, 17 unit/API, 2 fork. Tx hashes: none. Env changes: none (names documented in `.env.example`). Limits: CDP spender blocked (M9). Next: Phase 1.
+- **2026-11-24 — Phase 0 done.** Files: root `package.json` (workspaces + scripts), `eslint.config.js`, `.gitignore`, `server/` (app, config, errors, tests, Gate 0 scripts, fork tests), `client/` (shell), `scout/` (x402 dry check), `.env.example` ×3, `docs/gate0/2026-11-24-gate0-report.json`. Tests: verify pass, 17 unit/API, 2 fork. Tx hashes: none. Env changes: none (names documented in `.env.example`). Limits: CDP spender blocked (M9). Next: Phase 1. Commit `1115b8c`.
+- **2026-11-24 — Phase 1 built.** Files: `server/src/core/*` (money, priceGuard, limits, refillPlanner, stateMachine, decide), `server/src/db/refills.js`, `server/src/chain/*` (abis, client, priceFeed, balances, quote), `server/scripts/read-only.js`, tests in `server/test/core`, `server/test/db`, `server/test/fork/adapters.test.js`. Tests: verify pass, 60 unit/API/DB, 7 fork. Tx hashes: none. Env changes: none. PRD §11/§14/§16 updated (INV-4 includes `checked`; refill capping; min-out reference floor). Next: Checkpoint A review.
 
 ## 11. Manual tasks (owner)
 

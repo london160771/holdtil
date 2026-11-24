@@ -9,15 +9,18 @@
     "start": "node src/index.js",
     "test": "vitest run",
     "test:fork": "vitest run --config vitest.fork.config.js",
-    "gate0": "node scripts/gate0/run-all.js"
+    "gate0": "node scripts/gate0/run-all.js",
+    "read-only": "node scripts/read-only.js"
   },
   "devDependencies": {
+    "mongodb-memory-server": "^11.4.0",
     "supertest": "^7.3.2",
     "vitest": "^5.1.1"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.62.0",
     "express": "^5.3.0",
+    "mongodb": "^7.9.1",
     "viem": "^2.58.6"
   }
 }
