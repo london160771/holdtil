@@ -33,7 +33,7 @@ export function authRoutes({ db, config, chain }) {
       throw fail('Unreadable sign-in message');
     }
     if (!parsed.address || getAddress(parsed.address) !== getAddress(address)) throw fail('Address does not match the message');
-    if (parsed.chainId !== CHAIN_ID) throw fail('Wrong network');
+    if (parsed.chainId !== CHAIN_ID) throw fail(`Wrong network: the sign-in message is for chain ${parsed.chainId ?? 'unknown'}, not Base (${CHAIN_ID})`);
     if (parsed.uri !== config.appOrigin && !String(parsed.uri ?? '').startsWith(`${config.appOrigin}/`)) throw fail('Wrong site');
     const valid = validateSiweMessage({ message: parsed, domain: config.appDomain, time: new Date() });
     if (!valid) throw fail('Message expired, not yet valid, or for another site');
