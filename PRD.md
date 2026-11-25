@@ -359,6 +359,7 @@ No extra MVP endpoints beyond this table.
 | 2026-11-25 | `/v1/proof` shows Scout runs and the refills of the agent whose wallet = `SCOUT_ADDRESS` (public address in server env); no user ids; balance "unavailable" when the chain read fails | FR-PRF-001; only our own agent is public |
 | 2026-11-25 | Each tick refills agents in order of need: biggest USDC gap below the floor first, unreadable balances last, ties in DB order. The order only; every decision still reads the balance fresh | Owner's agents share one Spend Permission allowance; a $0 agent was starved by one just under its floor (tx `0x062d974c…c815`) |
 | 2026-11-25 | Rate limits are in memory, per IP, per minute: `/v1/auth` 20, writes on `/v1/*` 30, `/v1/proof` 60, `/internal` 10. New error code `rate_limited` (429, retryable, `Retry-After` header) | One API instance on Render; no extra service needed (§12 security) |
+| 2026-11-25 | First real Scout x402 payment: tx `0x57a8130e63de6c5ddd17daa51af113819cc8a2524f9455d4a8e912ef660cf3db` (0.03 USDC to x402stock, HTTP 200). Funded by a manual 0.1 USDC transfer because the day's permission allowance was used; the first Holdtil refill of Scout follows on 2026-11-26 | Owner chose not to wait a day |
 ---
 
 ## 17. Real vs mocked

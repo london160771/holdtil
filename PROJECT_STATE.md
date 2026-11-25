@@ -9,10 +9,10 @@
 
 ## 1. Right now
 
-- **Active phase:** Phase 4 — Holdtil Scout + proof page: built (dry by default).
-- **Status:** Stopped (CLAUDE.md §10 items 1 and 3): Scout needs its own wallet, and its first real x402 payment needs the owner.
-- **Next step:** owner does P4-STOP below.
-- **Blocked by:** P4-STOP. Steps 1–5 done. Step 6 on 2026-11-25 refilled Test Agent again (tx `0x062d974c…c815`) and used up today's 0.01 NVDAc, so Scout got `allowance_exhausted`. The executor now refills the emptiest agent first. Instead of waiting, the owner sent 0.1 USDC to Scout by hand (2026-11-25; Scout balance read on chain: 100000 = $0.10), so **Scout's first payment is funded manually, not by a Holdtil refill**. Owner now does steps 7–8. Step 6 (a Holdtil refill of Scout) runs again on 2026-11-26.
+- **Active phase:** Phase 5 — polish + launch (Phase 4 done except Scout's first Holdtil refill, which needs tomorrow's allowance).
+- **Status:** Building. Scout's first real x402 payment confirmed 2026-11-25 (tx `0x57a8130e…f3db`).
+- **Next step:** Claude continues Phase 5. Owner: on 2026-11-26 set `EXECUTOR_MODE=live`, run `npm run tick` once (refills Scout from NVDAc), set it back to empty, paste the output.
+- **Blocked by:** nothing for Claude. Owner step above (P4-STOP step 6) on 2026-11-26.
 
 **P4-STOP — give Scout a wallet, refill it with Holdtil, approve its first real payment**
 - *What and why:* Scout is our own agent that pays x402stock.xyz ($0.03 a call) for market data. It needs its own wallet, and Holdtil should refill that wallet from your NVDAc like any agent. Its first real payment needs your approval.
@@ -79,6 +79,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 | Gas | 0.00000739 ETH from the spender (incl. first-time smart account deploy); no paymaster | spender balance 0.0005 → 0.00049261 ETH |
 | Spender after | holds 0 NVDAc, 0 USDC (never user money) | balances read on chain |
 | Scout first funding | 0.1 USDC sent by the owner by hand (not a Holdtil refill) to Scout `0x6E69…8001`; balance 100000 read on chain | on chain by Claude 2026-11-25 |
+| Scout's first x402 payment | [`0x57a8130e…`](https://basescan.org/tx/0x57a8130e63de6c5ddd17daa51af113819cc8a2524f9455d4a8e912ef660cf3db) · block 62088788 · 2026-11-25 12:02:13 UTC · 0.03 USDC from Scout `0x6E69…8001` to x402stock `0x3070…fA85` for `market-pulse` (HTTP 200, summary stored) · funded by the owner's manual 0.1 USDC | on chain by Claude 2026-11-25 |
 | Second real refill | [`0x062d974c…`](https://basescan.org/tx/0x062d974c2c4c3ef32b5d86046ca08a426828f19f29bbc89eb3e0cd1506fbc815) · block 62086750 · 2026-11-25 11:55:25 UTC · 0.00334870 NVDAc → 0.494924 USDC to Test Agent `0xbAbD…7589` (rest of the day's allowance) · user op success, gas 0.0000030 ETH | on chain by Claude 2026-11-25 |
 
 ## 7. Demo recordings (PRD §22)
@@ -132,6 +133,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Phase 5 started.** Rate limits on auth, writes, proof and tick (+3 tests). `/docs` connect guide page (screenshots at 1280px and 390px checked, no sideways scroll). Clear message when the API can't be reached (502/503/504 or network error) instead of "Request failed (502)".
 
 - **2026-11-25 — Fix: Scout crashed at start with IndexOptionsConflict** (owner step 7). The server makes the `scoutRuns` indexes as `runId_unique` and `recent`; Scout made the same keys with default names. Scout now uses the same names (`ensureScoutIndexes`), +1 test that runs both orders on one database. No Atlas cleanup needed. Nothing was paid.
+
+- **2026-11-25 — Phase 4: first real Scout payment** (owner-approved, step 8): tx `0x57a8130e63de6c5ddd17daa51af113819cc8a2524f9455d4a8e912ef660cf3db`. Verified on chain: success; one USDC Transfer of 30000 ($0.03) from Scout to x402stock's payTo `0x3070Fbb3803819fB5BdfE9286fdc6325A877fA85`. Paid from 0.1 USDC the owner sent by hand. Second real refill (to Test Agent) `0x062d974c…c815` also verified. Left for Phase 4 acceptance: Scout's first Holdtil refill (2026-11-26).
 
 ## 11. Manual tasks (owner)
 
