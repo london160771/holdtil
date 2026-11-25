@@ -9,25 +9,10 @@
 
 ## 1. Right now
 
-- **Active phase:** Phase 2 — Accounts, agents, permissions: built and verified in the cloud.
-- **Status:** Stopped (CLAUDE.md §10 items 1 and 3): the first real mainnet signature of a new feature needs the owner.
-- **Next step:** Owner runs the app and signs in + signs one real spend permission (signing only, nothing is spent). Then Claude starts Phase 3.
-- **Blocked by:** owner test of sign-in + spend permission on mainnet (P2-STOP below).
-
-**P2-STOP — sign in and sign a real spend permission (no money moves)**
-- *What and why:* Phase 2 is done in tests. Two things can only be proven with your real wallet: (a) Sign in with Base works for your smart wallet `0x406b…4c56` (it is an EIP-7702 account, so the server has a fallback check), and (b) your wallet shows and signs a spend permission request (PRD §33 Q6). Signing moves no money. Holdtil cannot spend yet: there is no refill code until Phase 3.
-- *Steps (run it on your own computer, about 15 minutes):*
-  1. Make a free dev database: go to cloud.mongodb.com → sign up → create a free **M0** cluster named `holdtil-dev` → Database Access: add a user with a password → Network Access: "Add current IP" → Connect → Drivers → copy the connection string. This is a **dev** database, never the prod one.
-  2. Install Node 22+ (nodejs.org) and Git if you don't have them.
-  3. In a terminal: `git clone https://github.com/london160771/holdtil && cd holdtil && git checkout claude/project-thread-uqb47q && npm install`
-  4. Copy `server/.env.example` to `server/.env` and fill in these names in that file (never in chat): `MONGODB_URI` (your connection string, add `/holdtil` before the `?`), `SESSION_SECRET` and `TICK_SECRET` (any long random text, e.g. from `openssl rand -hex 32`), `APP_ORIGIN=http://localhost:5173`, `SPENDER_ADDRESS` (already filled), `BASE_RPC_URL=https://mainnet.base.org`. CDP keys are not needed for this step.
-  5. Run `npm run dev` and open http://localhost:5173 in your browser.
-  6. Click **Sign in with Base**. In the popup, use the smart wallet `0x406b…4c56` (keys.coinbase.com).
-  7. Tick both boxes → Continue. Add an agent: any name, and an agent wallet you control that is **not** the smart wallet (your EOA `0xbabd…7589` is fine). Leave limits empty (defaults).
-  8. In "Sign a spend permission" keep **NVDAc** and **0.01** per day → **Sign spend permission** → approve in the popup.
-- *How to check it worked:* the dashboard shows your agent, and under "Spend permissions" one row: NVDAc, per day 0.01, left today 0.01, status `active` (read live from chain). If any step shows an error, copy the red error text (not any secret) into the thread.
-- *What happens next:* Claude records the result (PRD §33 Q6, M10) and starts Phase 3 (refill executor: dry run first, then fork tests). The first real refill will be another stop for your approval.
-- *Alternative if you can't run it locally:* deploy (you deploy; Phase 5 has the full guide). Ask in the thread.
+- **Active phase:** Phase 3 — Refill executor (started 2026-11-25).
+- **Status:** Building. Phase 2 owner check passed (P2-STOP cleared 2026-11-25).
+- **Next step:** dry run → fork tests (lab #1–7) → stop for the owner before the first real $1 refill.
+- **Blocked by:** nothing yet. Known upcoming stops: dev spender needs a few cents of ETH for gas; owner approves the first real refill.
 
 ## 2. Phase tracker
 
@@ -35,8 +20,8 @@
 |---|---|---|---|---|
 | 0 — Foundation + Gate 0 | Done | 2026-11-24 | `1115b8c` | Gate 0 reviewed by Opus (orchestrator); passed |
 | 1 — Core engine | Done | 2026-11-24 | `91ab9a5` + review fixes (see §10) | A done; 9 findings fixed or carried to Phase 3 |
-| 2 — Accounts, agents, permissions | Built; owner mainnet check pending (P2-STOP) | 2026-11-24 | `7628b7b` | — |
-| 3 — Refill executor | Not started | | | B |
+| 2 — Accounts, agents, permissions | Done (owner check passed 2026-11-25) | 2026-11-25 | `7628b7b` + fixes `1358c71`, `34547ab` | — |
+| 3 — Refill executor | In progress | | | B |
 | 4 — Holdtil Scout + proof page | Not started | | | — |
 | 5 — Product polish + launch | Not started | | | C |
 | 6 — Video, X post, submission | Not started | | | — |
@@ -50,7 +35,7 @@
 | Fork tests | `npm run test:fork` | 11 passed (3 files): Gate 0, read-only adapters, smart-wallet (ERC-6492) SIWE + permission signatures | 2026-11-24 |
 | Server smoke | real `src/index.js` + in-memory MongoDB + mainnet RPC | `/health` ok; SIWE sign-in with a throwaway key → 200 + session cookie; `/v1/me` ok; replayed sign-in → 401 `auth_failed` | 2026-11-24 |
 | UI | Playwright screenshots, API mocked for layout only | landing, start, dashboard, agent at 1280 and 390: no horizontal scroll | 2026-11-24 |
-| Real wallet | owner sign-in + spend permission | **not done yet** (P2-STOP) | — |
+| Real wallet | owner sign-in + spend permission (owner's computer, Brave, Base Account popup) | pass: signed in as `0x406b…4c56`, agent added, NVDAc permission 0.01/day signed; dashboard shows left today 0.01, status `active` (read from chain). Signing only; no tx | 2026-11-25 |
 
 ## 4. What works (verified)
 
@@ -93,11 +78,11 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 
 - Eligibility confirmed: owner bought and holds NVDAc from Nigeria (2026-11-24).
 - Anvil can't run B20 precompiles; B20 tests use `eth_simulateV1` (PRD §16).
-- CDP docs say spend permissions in the Coinbase Wallet app are "coming soon". Still to confirm with the owner's real wallet at P2-STOP (PRD §33 Q6).
+- Spend permission signing confirmed with the owner's Base Account popup (2026-11-25, PRD §33 Q6). The permission is only signed; it is approved on chain by the first refill (`approveWithSignature`).
 - NVDAc/USDC pool is small (~18.7k USDC side). Fine for small refills.
 - `npm audit`: 3 high-severity advisories inside `@coinbase/cdp-sdk`'s own nested `zod`/`abitype`. The only "fix" downgrades the SDK to 1.7.0. Left as is; re-check before launch (Checkpoint C).
 - Dev spender created (M9 done): `0xb7F3c5F916359B303d3ecEbB39f47969444fd15B`. Owner's Base Account `0x406b…4c56` funded with NVDAc (M10 done).
-- The owner's smart wallet is an EIP-7702 account. Sign in falls back to plain signature recovery when the address has 7702 code (PRD §16). Not yet tried with the real wallet.
+- The owner's smart wallet is an EIP-7702 account. Sign in falls back to plain signature recovery when the address has 7702 code (PRD §16). Worked with the real wallet 2026-11-25.
 - Same-origin hosting (Vercel rewrite of `/v1` to Render) is needed for the session cookie in production. Not written yet; Phase 5 deploy guide.
 
 ## 9. Handoff notes
@@ -116,6 +101,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-24 — Phase 2 built.** Files: `server/src/{app,index}.js`, `server/src/config/{env,limits}.js`, `server/src/db/index.js`, `server/src/auth/session.js`, `server/src/routes/{auth,me,agents,permissions}.js`, `server/src/chain/spendPermission.js`, `server/test/api/*`, `server/test/fork/smartWalletSignatures.test.js`, `client/src/{App,api,format,wallet}.js(x)`, `client/src/pages/*`, `client/src/components/*`, `server/.env.example`, `server/package.json` (dev reads `.env`). Tests: verify pass, 114 server tests; 11 fork tests. Tx hashes: none. Env changes (names): `APP_ORIGIN`, `SPENDER_ADDRESS`, `MONGODB_URI` now required. Limits: real wallet sign-in and permission signing not tried yet (P2-STOP); Vercel → Render same-origin rewrite not written yet (Phase 5). Next: owner check, then Phase 3.
 - **2026-11-25 — P2-STOP fix.** Owner's first sign-in showed "Wrong network" (the wallet signed a message for another chain). Fix: the app now switches the Base Account provider to Base and builds the sign-in message itself with chain 8453; the server error names the chain it got. verify pass (114 tests). Owner to re-pull and retry.
 - **2026-11-25 — P2-STOP fix 2.** Sign-in and Add agent worked for the owner. Signing the permission failed with "salt must be a whole number": the Base Account SDK sends salt as 32-byte hex and defaults `end` to forever. Fix: server accepts decimal or hex numbers; app sets `end` to 365 days (server max 366). 2 new API tests; verify pass (116 tests).
+- **2026-11-25 — Phase 2 owner check passed.** Owner signed in with Base (`0x406b…4c56`), added agent "Test Agent" (`0xbAbD…7589`), signed an NVDAc spend permission of 0.01/day. Dashboard: left today 0.01, status `active`. Data is in the owner's local dev DB; nothing on chain yet (no tx). Phase 3 started.
 
 ## 11. Manual tasks (owner)
 

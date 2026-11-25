@@ -4,8 +4,8 @@ Stated plainly. The UI banner always shows **`REAL · BASE MAINNET`**. There is 
 
 | Part | Real or mocked | Proof |
 |---|---|---|
-| Sign in with Base | Real code, Base mainnet; tested with throwaway keys and smart-wallet signatures; not yet with a real user wallet | API + fork tests |
-| Spend Permissions | Signing + live status read from chain built; not yet signed with a real wallet. Nothing is spent until Phase 3 | API + fork tests |
+| Sign in with Base | Real code, Base mainnet; tested with throwaway keys and smart-wallet signatures; and with the owner's real Base Account (2026-11-25) | API + fork tests; owner check |
+| Spend Permissions | Signing + live status read from chain built; signed by the owner's real Base Account (2026-11-25). Nothing is spent until Phase 3 | API + fork tests; owner check |
 | Refills (stock → USDC → agent wallet) | Real, Base mainnet (planned) | [tx hashes] |
 | Receipts and decisions | Real, from DB + chain (planned) | [ ] |
 | Holdtil Scout x402 payments | Real, Base mainnet (planned) | [tx hashes] |

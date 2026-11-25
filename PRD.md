@@ -601,6 +601,6 @@ Phases run back to back. An agent stops only for: a manual task, missing env val
 | 1 | Can the owner hold NVDAc from Nigeria? **Yes — bought on Aerodrome 2026-11-24** | Adesope | done |
 | 2 | Is @holdtil free on X? | Adesope | Nov 25 |
 | 3 | Can one project enter two tracks? | Adesope (partner Telegram) | Dec 5 |
-| 4 | Default limits for new users (floor, target, daily) | Adesope + Claude | Phase 2 |
+| 4 | Default limits for new users (floor, target, daily). **Set in Phase 2: $1 / $3 / $2 per refill / $5 a day per agent, $10 per user (§16)** | Adesope + Claude | done |
 | 5 | Exact deadline time on Dec 12 | Adesope (partner Telegram) | Dec 1 |
 | 6 | Which wallet holds your NVDAc? **Answer 2026-11-24: a plain EOA (no code, nonce 1648, holds 0.00685353 NVDAc).** An EOA can't grant Spend Permissions, which need a Coinbase Smart Wallet / Base Account. Plan: owner opens a Base Account and moves NVDAc there before the Phase 2 signing stop | Adesope | Phase 2 |
