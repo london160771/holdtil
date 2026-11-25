@@ -44,13 +44,13 @@ function fakeExecutor(base, opts = {}) {
   return ex;
 }
 
-async function setupUser({ permission = true, liveListed = true } = {}) {
+async function setupUser({ permission = true, liveListed = true, allowance } = {}) {
   const me = newUser();
   if (liveListed) liveConfig.liveUsers.push(me.address);
   const a = await signIn(app, me);
   const wallet = newUser().address;
   const res = await a.post('/v1/agents').send({ name: 'Bot', walletAddress: wallet });
-  if (permission) await a.post('/v1/permissions').send(await signedPermission(me));
+  if (permission) await a.post('/v1/permissions').send(await signedPermission(me, allowance ? { allowance } : {}));
   return { me, a, agentId: res.body.agent.id, wallet };
 }
 
@@ -407,5 +407,25 @@ describe('Checkpoint B fixes', () => {
     await live(ex);
     const swap = decodeFunctionData({ abi: routerAbi, data: ex.s.sends[0].calls.at(-1).data }).args[0];
     expect(swap.deadline).toBeGreaterThan(start + 300n + 100n);
+  });
+});
+
+describe('owner dry-run report (2026-11-25): allowance 0.01 NVDAc/day', () => {
+  it('dry run with the default $1 rollout cap fits under the allowance → dry_run, not allowance_exhausted', async () => {
+    const { agentId } = await setupUser({ allowance: 1_000_000n });
+    const ex = fakeExecutor(chain);
+    expect(resultFor(await dry(ex), agentId)).toMatchObject({ code: 'dry_run' });
+    const [r] = await refillsOf(agentId);
+    expect(BigInt(r.stockAmount)).toBeLessThanOrEqual(1_000_000n);
+    expect(BigInt(r.maxPayoutUsdc)).toBeLessThanOrEqual(1_000_000n);
+  });
+
+  it('with a $2 cap the refill shrinks to fit the allowance left instead of blocking', async () => {
+    const { agentId } = await setupUser({ allowance: 1_000_000n }); // 0.01 NVDAc ≈ $1.50 at $150
+    const ex = fakeExecutor(chain);
+    await live(ex); // liveConfig cap is $2
+    const [r] = await refillsOf(agentId);
+    expect(r.state).toBe('confirmed');
+    expect(BigInt(r.stockAmount)).toBeLessThanOrEqual(1_000_000n);
   });
 });

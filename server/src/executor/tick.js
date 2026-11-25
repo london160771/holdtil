@@ -9,7 +9,7 @@ import { HoldtilError } from '../errors.js';
 import { checkControls } from '../core/decide.js';
 import { checkPrice, quotePriceFromSwap } from '../core/priceGuard.js';
 import { checkLimits, spentToday } from '../core/limits.js';
-import { planRefillUsdc, stockAmountForUsdc, minOut as computeMinOut, maxPayoutUsdc } from '../core/refillPlanner.js';
+import { planRefillUsdc, stockAmountForUsdc, usdcValue, minOut as computeMinOut, maxPayoutUsdc } from '../core/refillPlanner.js';
 import { decisionStateFor } from '../core/stateMachine.js';
 import { getSettings } from '../db/index.js';
 import { REFILLS, createPlannedRefill, moveRefill, recordSendHash, recoverStaleRefills } from '../db/refills.js';
@@ -103,8 +103,15 @@ async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId
   if (pStatus.status !== 'active') return stop('permission_revoked', `permission ${pStatus.status}`, { balance });
 
   const ref = await chain.readReference(stock);
+  // Fit the refill to what the permission still allows today, instead of blocking (smaller refill, same rules).
+  let plannedUsdc = need.usdc;
+  if (ref.answer > 0n) {
+    const fits = (usdcValue({ stockAmount: pStatus.remaining, price: ref.answer, tokenDecimals: stock.decimals, usdcDecimals: USDC_DECIMALS, priceDecimals: ref.decimals }) * 10_000n) / (10_000n + EXECUTOR.bufferBps + 1n);
+    if (fits < plannedUsdc) plannedUsdc = fits;
+    if (plannedUsdc < EXECUTOR.minRefillUsdc) return stop('allowance_exhausted', 'permission allowance left today is too small for a refill', { balance });
+  }
   const stockAmount = stockAmountForUsdc({
-    usdc: need.usdc,
+    usdc: plannedUsdc,
     refPrice: ref.answer > 0n ? ref.answer : 1n,
     tokenDecimals: stock.decimals,
     usdcDecimals: USDC_DECIMALS,
@@ -130,7 +137,7 @@ async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId
   });
   const facts = {
     balance,
-    plannedUsdc: need.usdc,
+    plannedUsdc,
     stockAmount,
     quotedOut,
     refPrice: ref.answer,
@@ -223,7 +230,8 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
   const agentId = String(agent._id);
   let user = await loadUser(db, agent);
   const mode = agentMode(tickMode, user, config);
-  const liveCap = mode === 'live' ? config.liveMaxRefillUsdc ?? 1_000_000n : undefined;
+  // Rollout cap (default $1) applies to dry runs too, so a dry run shows exactly what live would do.
+  const liveCap = config.liveMaxRefillUsdc ?? 1_000_000n;
   let nowSec = await chain.blockTime(); // fresh per agent (Checkpoint B #2)
   if (!user) return { agentId, result: 'skipped', code: 'paused', reason: 'owner not found' };
   if (user.stoppedAt) return { agentId, result: 'skipped', code: 'paused', reason: 'owner pressed Stop' };
