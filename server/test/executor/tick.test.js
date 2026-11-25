@@ -429,3 +429,22 @@ describe('owner dry-run report (2026-11-25): allowance 0.01 NVDAc/day', () => {
     expect(BigInt(r.stockAmount)).toBeLessThanOrEqual(1_000_000n);
   });
 });
+
+describe('owner live run report (2026-11-25): dry run then live in the same 5-minute window', () => {
+  it('a dry-run record does not block the live run that follows', async () => {
+    const { agentId } = await setupUser();
+    const ex = fakeExecutor(chain);
+    const now = new Date();
+    expect(resultFor(await runTick({ db: env.db, chain: ex, config: liveConfig, mode: 'dry', now }), agentId)).toMatchObject({ code: 'dry_run' });
+    expect(resultFor(await live(ex, now), agentId)).toMatchObject({ result: 'confirmed' });
+    expect(ex.s.sends).toHaveLength(1);
+  });
+
+  it('the same mode twice in one window is skipped with a clear reason', async () => {
+    const { agentId } = await setupUser();
+    const ex = fakeExecutor(chain);
+    const now = new Date();
+    await dry(ex, now);
+    expect(resultFor(await dry(ex, now), agentId)).toMatchObject({ result: 'skipped', reason: expect.stringMatching(/5-minute window/) });
+  });
+});

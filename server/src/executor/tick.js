@@ -233,6 +233,8 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
   // Rollout cap (default $1) applies to dry runs too, so a dry run shows exactly what live would do.
   const liveCap = config.liveMaxRefillUsdc ?? 1_000_000n;
   let nowSec = await chain.blockTime(); // fresh per agent (Checkpoint B #2)
+  // Idempotency window per mode: a dry-run record never takes the id a live run needs (owner report 2026-11-25).
+  const runId = `${tickId}:${mode}`;
   if (!user) return { agentId, result: 'skipped', code: 'paused', reason: 'owner not found' };
   if (user.stoppedAt) return { agentId, result: 'skipped', code: 'paused', reason: 'owner pressed Stop' };
   if (agent.status !== 'active') return { agentId, result: 'skipped', code: 'paused', reason: 'agent paused' };
@@ -240,16 +242,16 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
   const plan = await evaluate({ db, chain, agent, user, stock, nowSec, liveCap });
   if (plan.ok && !plan.needed) return { agentId, result: 'not_needed' };
   if (!plan.ok) {
-    const d = await recordDecision(db, { agentId, tickId, now, code: plan.code, reason: plan.reason, facts: plan });
+    const d = await recordDecision(db, { agentId, tickId: runId, now, code: plan.code, reason: plan.reason, facts: plan });
     return { agentId, result: decisionStateFor(plan.code), code: plan.code, reason: plan.reason, ...d };
   }
 
   // INV-4 lock. A second tick for this agent gets refill_in_flight here.
   let refill;
   try {
-    refill = await createPlannedRefill(db, { agentId, tickId, plannedUsdc: upperBound(plan.plannedUsdc), now });
+    refill = await createPlannedRefill(db, { agentId, tickId: runId, plannedUsdc: upperBound(plan.plannedUsdc), now });
   } catch (e) {
-    if (e?.code === 'refill_in_flight') return { agentId, result: 'skipped', code: 'refill_in_flight' };
+    if (e?.code === 'refill_in_flight') return { agentId, result: 'skipped', code: 'refill_in_flight', reason: e.message };
     throw e;
   }
   const at = () => new Date().toISOString();

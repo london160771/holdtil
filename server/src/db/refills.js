@@ -49,7 +49,12 @@ export async function createPlannedRefill(db, { agentId, tickId, plannedUsdc, no
     await db.collection(REFILLS).insertOne(doc);
   } catch (e) {
     if (e?.code === 11000) {
-      throw new HoldtilError('refill_in_flight', 'another refill for this agent is active or this tick already ran', { status: 409 });
+      const sameWindow = Boolean(e?.keyPattern?.refillId);
+      throw new HoldtilError(
+        'refill_in_flight',
+        sameWindow ? 'this agent was already handled in this 5-minute window (same mode); try after the window' : 'another refill for this agent is in flight',
+        { status: 409 },
+      );
     }
     throw e;
   }

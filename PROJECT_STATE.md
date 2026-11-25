@@ -44,7 +44,7 @@
 
 | Check | Command | Result | Date |
 |---|---|---|---|
-| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 154 server tests (15 files), client build ok | 2026-11-25 |
+| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 156 server tests (15 files), client build ok | 2026-11-25 |
 | Fork tests | `npm run test:fork` | 18 passed (4 files), incl. executor batch with the real CDP spender: 0.00682772 NVDAc → 1.005479 USDC to agent, min-out 1.000451, gas 413,062 (simulation) | 2026-11-25 |
 | Real dry-run tick | `runTick` dry, in-memory DB, real RPC + CDP spender, throwaway unfunded user | real price (gap 4 bps), planned → checked → waited `simulation_failed` (user had no NVDAc), nothing sent | 2026-11-25 |
 | UI | Playwright screenshots (API mocked for layout only) | agent page with receipts at 1280 and 390: no horizontal scroll | 2026-11-25 |
@@ -119,6 +119,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Phase 3 built (dry run).** Files: `server/src/executor/tick.js`, `server/src/chain/{refillBatch,executorChain,spender}.js`, `server/src/config/executor.js`, `server/src/routes/{tick,refills}.js`, `server/scripts/tick.js`, `server/src/{app,index,errors}.js`, `server/src/db/refills.js`, `server/src/config/env.js`, `client/src/components/Receipts.jsx`, `client/src/pages/Agent.jsx`, tests `server/test/executor/tick.test.js` (22), `server/test/fork/executor.fork.test.js` (7). Tests: verify pass (138), fork 18. Tx hashes: none. Env (names): `EXECUTOR_MODE` (optional; unset = dry). Limits: no real refill yet; spender not deployed and has 0 ETH. Next: Checkpoint B, then owner stop.
 - **2026-11-25 — Checkpoint B (fresh-eyes review, separate agent).** No path found that sells at a bad price, over a limit, to the wrong place, twice, while paused or in dry mode. Findings fixed: (1, high) live mode now only for `LIVE_USER_ADDRESSES` with a $1 cap; (2) fresh chain time per agent and for the deadline; (3) CDP idempotency key as UUID v4; (4) settle reads our own user-op success, counts only pool → agent USDC, unclear results stay locked with an alert; (5) hash-save failure logged + alerted; (6) agent/user re-read under the lock; (7) decimals read on chain each tick. Deferred to Checkpoint C: (8) restrict permission signers to Coinbase Smart Wallet / 7702; (9) alert after 3 simulation failures. 14 new tests. verify pass (152), fork 18.
 - **2026-11-25 — Owner dry run #1:** blocked `allowance_exhausted`. Cause: dry runs didn't apply the $1 rollout cap, so it planned ~$1.97 = 0.0134 NVDAc, over the 0.01/day permission. Fix: rollout cap applies in dry too; refill shrinks to fit the allowance left. Spender gas confirmed: 0.0005 ETH at `0xb7F3…d15B`. 2 regression tests; verify pass (154).
+- **2026-11-25 — Owner live tick #1:** `skipped refill_in_flight`, nothing sent (checked on chain: spender still 0.0005 ETH and undeployed, owner NVDAc 0.02065741 unchanged, agent USDC 0). Cause: the dry run and the live run were in the same 5-minute window and shared the refill id. Fix: id includes the mode; clearer skip reason. 2 regression tests; verify pass (156).
 
 ## 11. Manual tasks (owner)
 
