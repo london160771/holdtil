@@ -123,6 +123,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 | 5 — Control returns | no | | |
 
 ## 8. Known issues and limitations
+- Flaky test (seen 2026-11-25, 1 of 4 runs): `tick.test.js` "two ticks in different 5-minute windows at once → still one refill". The fake chain's USDC balance never rises after a refill, so if the first tick fully confirms before the second plans, the second refills again. Test timing only, not a product bug (on chain the balance rises). Fix later by making the fake balance rise after a confirmed refill.
 
 - Eligibility confirmed: owner bought and holds NVDAc from Nigeria (2026-11-24).
 - Anvil can't run B20 precompiles; B20 tests use `eth_simulateV1` (PRD §16).
@@ -175,6 +176,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Owner asks: docs, README, withdraw.** `/docs` rewritten as a plain-language guide for web2 and web3 readers (glossary, steps, when it waits, stop/revoke, dev snippet, FAQ); header link "Docs"; checked at 1280 and 390. Dashboard **Revoke** button (Base Account SDK `requestRevoke`; the user's own wallet sends it). README rewritten: simple intro, mainnet tx proof table, judge path, technical section. Withdraw guide `docs/withdraw.md` + sweep scripts, dry by default: `npm run scout:sweep` (Scout's USDC), `npm run spender[:prod] -- info|sweep [--send]` (spender ETH; also creates the prod spender with `info`). Spender sweep dry run checked against the dev spender (nothing sent).
 
 - **2026-11-25 — Frontend redesign + logo (owner picked logo A).** Pre-deploy item 1. Look: warm paper and ink with one Base-blue accent, Geist + Geist Mono + Instrument Serif (self-hosted via Fontsource), lucide icons. Logo A (two hold bars + rising stock line) in the header and as favicon (`client/public/favicon.svg`, `logo.svg`). Signature: every refill/decision is printed as a ticker-tape row (`components/Tape.jsx`); waits use the hold-bars glyph. Landing: hero with a real public-domain photo of Edison's stock ticker (Smithsonian NMAH via Wikimedia Commons, credited in the footer) and a paper tape that prints Scout's latest real decisions from `GET /v1/proof` (labelled "Example" with no hashes or dates when there are none); "how it works" cards; animated fair-price gate; rules; risks. App screens restyled with no logic change. Motion: one entrance, tape print, scroll reveal, gate animation, float bar fill; all off under reduced motion. Checked at 1440 and 390 with mocked API.
+
+- **2026-11-25 — README rewrite + first-time guide (owner request).** README now covers: the problem, who needs it, where the money sits (stock balance in the owner's Base Account vs USDC float in the agent wallet, with a worked refill), features, a new-user guide, day-to-day use, adding a real agent (and the live-list rollout limit), accounts (one Base Account per user, data scoped per user), security (can / cannot), security proof (mainnet txs, break-it tests, fork tests, reviews), why Base, tech stack. `/docs` gets "First time here", "Where your money sits" and a rollout FAQ. No code logic changed. verify pass (180 server, 11 scout).
 
 ## 11. Manual tasks (owner)
 
@@ -229,7 +232,7 @@ Status: ⬜ to do · ✅ done
 
 **M7 — X account**
 1. Check x.com/holdtil is free. If yes, create it with the same email you'll use for the project.
-2. Bio: "Your agent's money stays invested until it pays. Built on @base."
+2. Bio: "Your agent's budget stays invested until it pays. Built on @base."
 3. Tell Claude the handle (or a backup handle if taken).
 
 **M8 — Domain (later)**

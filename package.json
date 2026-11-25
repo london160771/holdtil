@@ -2,7 +2,7 @@
   "name": "holdtil",
   "private": true,
   "version": "0.1.0",
-  "description": "Your agent's money stays invested until it pays.",
+  "description": "Your agent's budget stays invested until it pays.",
   "type": "module",
   "engines": {
     "node": ">=22"

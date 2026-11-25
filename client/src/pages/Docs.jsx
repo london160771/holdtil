@@ -35,6 +35,53 @@ export default function Docs() {
         </p>
       </div>
 
+      <h2 id="first-time">First time here</h2>
+      <p>
+        <strong>Before you start, you need three things.</strong>
+      </p>
+      <ol>
+        <li>
+          <strong>A Base Account.</strong> Coinbase&apos;s smart wallet on Base. You sign in with it, no password. If you don&apos;t have one, the sign-in
+          window helps you make one.
+        </li>
+        <li>
+          <strong>Some NVDAc in that Base Account.</strong> This is the stock your agent&apos;s budget lives in. See{' '}
+          <a href="https://www.base.org/stocks" target="_blank" rel="noreferrer">base.org/stocks</a>. Not available to US persons.
+        </li>
+        <li>
+          <strong>Your agent&apos;s wallet address.</strong> The <code>0x…</code> address your agent pays from. Not sure? See &quot;For developers&quot;
+          below.
+        </li>
+      </ol>
+      <p>
+        <strong>Then, about five minutes in the app.</strong>
+      </p>
+      <ol className="howto">
+        <li>
+          <strong>Sign in with Base.</strong> Press Sign in with Base on the home page. Your wallet asks you to sign a message. It is free and moves no
+          money.
+        </li>
+        <li>
+          <strong>Confirm who you are.</strong> Tick &quot;I am not a US person&quot; and accept the risk note.
+        </li>
+        <li>
+          <strong>Add your agent.</strong> Give it a name and paste its wallet address. Keep the safe defaults or set your own: refill when it has under
+          $1, fill it up to $3, at most $2 per refill and $5 a day. The address can never be changed later. USDC only ever goes there.
+        </li>
+        <li>
+          <strong>Sign a Spend Permission.</strong> Pick how much stock Holdtil may use per day, for example 0.01 NVDAc. Your wallet shows exactly what you
+          sign. Signing moves no money.
+        </li>
+        <li>
+          <strong>Done.</strong> The dashboard shows each agent&apos;s USDC float and what was refilled today. Holdtil checks every 5 minutes. When the float
+          is under your floor and the price is fair, it refills.
+        </li>
+      </ol>
+      <p className="text-secondary">
+        To check it works, open your agent&apos;s page. Every refill shows up there with a BaseScan link, and every wait shows the reason, like &quot;Price off,
+        waited&quot;.
+      </p>
+
       <h2>The words you&apos;ll see</h2>
       <dl className="words">
         {WORDS.map(([w, d]) => (
@@ -55,22 +102,25 @@ export default function Docs() {
         <li><strong>You stop it anytime.</strong> One tap stops every agent. Revoking the permission stops it for good.</li>
       </ol>
 
-      <h2>How to use it</h2>
-      <ol className="howto">
-        <li>
-          <strong>Sign in with Base.</strong> Use your Base Account (Coinbase smart wallet). Confirm you are not a US person.
-        </li>
-        <li>
-          <strong>Add your agent.</strong> Give it a name and paste its wallet address. Set limits or keep the safe defaults: refill when it has under
-          $1, fill it up to $3, at most $2 per refill and $5 a day. The address can never be changed later. USDC only ever goes there.
-        </li>
-        <li>
-          <strong>Sign a Spend Permission.</strong> Choose how much stock Holdtil may use per day. Your wallet shows exactly what you sign.
-        </li>
-        <li>
-          <strong>That&apos;s it.</strong> Your agent page lists every refill and every wait, with the reason and a link to the transaction on BaseScan.
-        </li>
-      </ol>
+      <h2>Where your money sits</h2>
+      <div className="table-wrap table-responsive mb-2">
+        <table className="table align-middle">
+          <thead>
+            <tr><th></th><th>Stock balance</th><th>USDC float</th></tr>
+          </thead>
+          <tbody>
+            <tr><td className="text-secondary">What</td><td>NVDAc (tokenized NVIDIA)</td><td>USDC (digital dollars)</td></tr>
+            <tr><td className="text-secondary">Where</td><td>Your Base Account</td><td>Your agent&apos;s wallet</td></tr>
+            <tr><td className="text-secondary">Who controls it</td><td>You. Holdtil only uses the daily permission you signed</td><td>Your agent</td></tr>
+            <tr><td className="text-secondary">Size</td><td>Most of the budget</td><td>Small, between your floor and target</td></tr>
+            <tr><td className="text-secondary">Moves with the stock price</td><td>Yes, up or down</td><td>No</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="text-secondary">
+        So the agent&apos;s budget stays in stock in your wallet. Only the small slice it is about to spend is USDC in the agent&apos;s wallet. Holdtil
+        never holds either one.
+      </p>
 
       <h2>When Holdtil sells, and when it waits</h2>
       <ul>
@@ -109,6 +159,11 @@ const res = await paidFetch('https://example.com/paid-api');
       <dl className="faq">
         <dt>Does Holdtil hold my money?</dt>
         <dd>No. Your stock stays in your Base Account and the USDC goes to your agent&apos;s wallet. Holdtil only uses the permission you signed.</dd>
+        <dt>Are refills real for everyone yet?</dt>
+        <dd>
+          Not yet. During rollout, real refills run only for accounts on Holdtil&apos;s live list, at most $1 each. Other accounts run as a dry run: Holdtil
+          checks the price and tests the transaction, then logs what it would have done without sending anything.
+        </dd>
         <dt>What does it cost?</dt>
         <dd>Holdtil pays the network fee for refills. The swap has a small exchange fee, included in the price check.</dd>
         <dt>Can I get everything out?</dt>
