@@ -40,12 +40,30 @@ export function chainDeps(client) {
 export function createApp({ db, config, chain, executorChain } = {}) {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', 1);
+  app.set('trust proxy', config?.trustProxyHops ?? 1);
   app.use(express.json({ limit: '32kb' }));
 
   // PRD §14: GET /health
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', network: 'base-mainnet', chainId: CHAIN_ID });
+  // Also a keep-alive: cron-job.org calls it on a schedule. It wakes the Render service and pings MongoDB,
+  // so the Atlas free cluster always sees activity and is never paused for inactivity (owner 2026-11-25).
+  app.get('/health', async (_req, res) => {
+    const body = { status: 'ok', network: 'base-mainnet', chainId: CHAIN_ID };
+    if (db) {
+      try {
+        await db.command({ ping: 1 });
+        body.db = 'ok';
+      } catch {
+        body.status = 'degraded';
+        body.db = 'unavailable';
+      }
+    }
+    res.status(body.status === 'ok' ? 200 : 503).json(body);
+  });
+
+  // API answers are per user and live; no proxy or CDN may cache them (the Vercel rewrite caches by default).
+  app.use(['/v1', '/internal'], (_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
   });
 
   if (db) {

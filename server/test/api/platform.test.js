@@ -41,3 +41,35 @@ describe('rate limits (PRD §12)', () => {
     expect(run()).toBeUndefined();
   });
 });
+
+describe('proxy headers', () => {
+  it('API answers are never cacheable', async () => {
+    const app = createApp({ db: env.db, config, chain: fakeChain() });
+    const res = await request(app).get('/v1/proof');
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
+  it('behind Vercel + Render (2 hops) the limit is per client IP, not per proxy IP', async () => {
+    const app = createApp({ db: env.db, config: { ...config, trustProxyHops: 2, rateLimits: { auth: 1 } }, chain: fakeChain() });
+    const from = (ip) => request(app).get('/v1/auth/nonce').set('X-Forwarded-For', `${ip}, 76.76.21.21`);
+    expect((await from('1.1.1.1')).status).not.toBe(429);
+    expect((await from('2.2.2.2')).status).not.toBe(429);
+    expect((await from('1.1.1.1')).status).toBe(429);
+  });
+});
+
+describe('keep-alive', () => {
+  it('/health pings MongoDB and says so', async () => {
+    const app = createApp({ db: env.db, config, chain: fakeChain() });
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'ok', db: 'ok' });
+  });
+
+  it('/health answers 503 when MongoDB is unreachable', async () => {
+    const broken = { command: async () => { throw new Error('down'); }, collection: () => ({}) };
+    const res = await request(createApp({ db: broken, config, chain: fakeChain() })).get('/health');
+    expect(res.status).toBe(503);
+    expect(res.body).toMatchObject({ status: 'degraded', db: 'unavailable' });
+  });
+});

@@ -22,6 +22,9 @@ export function loadConfig(env = process.env) {
     // Cookies are Secure on https. The client reaches the API through the same origin (Vercel rewrite), so SameSite=Lax.
     cookieSecure: appOrigin.startsWith('https://'),
     tickSecret: env.TICK_SECRET || '',
+    // Proxies in front of the API: 1 locally / Render alone, 2 behind the Vercel rewrite (Vercel + Render).
+    // Express then takes the client IP from X-Forwarded-For for rate limits.
+    trustProxyHops: /^[0-3]$/.test(env.TRUST_PROXY_HOPS || '') ? Number(env.TRUST_PROXY_HOPS) : 1,
     // Holdtil Scout's public wallet address, shown on /proof (not a secret).
     scoutAddress: env.SCOUT_ADDRESS || '',
     // Refill executor: 'dry' (default; simulates, sends nothing) unless the owner sets EXECUTOR_MODE=live.

@@ -10,9 +10,32 @@
 ## 1. Right now
 
 - **Active phase:** Phase 5 — polish + launch (Phase 4 done except Scout's first Holdtil refill, which needs tomorrow's allowance).
-- **Status:** Building. Scout's first real x402 payment confirmed 2026-11-25 (tx `0x57a8130e…f3db`).
-- **Next step:** Claude continues Phase 5. Owner: on 2026-11-26 set `EXECUTOR_MODE=live`, run `npm run tick` once (refills Scout from NVDAc), set it back to empty, paste the output.
-- **Blocked by:** nothing for Claude. Owner step above (P4-STOP step 6) on 2026-11-26.
+- **Status:** Building. Deploy guide ready (P5-DEPLOY below). Checkpoint C (security review) next.
+- **Next step:** Owner: P5-DEPLOY when ready (the owner always deploys). 2026-11-26: P4-STOP step 6 (refill Scout). Claude: Checkpoint C.
+- **Blocked by:** nothing for Claude. Owner steps above.
+
+**P5-DEPLOY — put Holdtil online (owner only; agents never deploy)**
+- *What and why:* run the API on Render, the web app on Vercel (same domain, so sign-in cookies work), and a 5-minute timer that runs refills and keeps Render and MongoDB Atlas awake. Live refills stay limited to your account with the $1 cap (rollout step 4).
+- *Before you start:* merge the Holdtil pull request into `main` (Claude opens it). Render and Vercel deploy from `main`.
+- *Part A — API on Render*
+  1. render.com → **New → Web Service** → connect GitHub → pick the `holdtil` repo, branch `main`.
+  2. Settings: Language **Node**. Root directory: leave empty. Build command: `npm ci`. Start command: `npm start -w server`. Instance type: **Free**. Health check path: `/health`.
+  3. **Environment** tab, add (values typed by you, never pasted in chat). Use **prod** values, not the cloud dev ones:
+     `BASE_RPC_URL` (your CDP RPC URL), `MONGODB_URI` (Atlas), `SESSION_SECRET` and `TICK_SECRET` (two new long random strings, e.g. from a password manager), `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET` (the CDP project that owns the spender), `SPENDER_ADDRESS=0xb7F3c5F916359B303d3ecEbB39f47969444fd15B`, `APP_ORIGIN` (your Vercel URL from Part B, e.g. `https://holdtil.vercel.app`; put a placeholder first and fix it after Part B), `TRUST_PROXY_HOPS=2`, `SCOUT_ADDRESS=0x6E69A457FA9487d099CB2c428Ca33b74ee818001`, `EXECUTOR_MODE=live`, `LIVE_USER_ADDRESSES=0x406bd02d69f1f5d9850c330e7da8252b1a5f4c56`, `LIVE_MAX_REFILL_USDC=1000000`.
+  4. Atlas → **Network Access**: allow Render to connect (simplest on the free plan: `0.0.0.0/0`, the database password still protects it).
+  5. Deploy. Check: open `https://<your-service>.onrender.com/health` → `"status":"ok"` and `"db":"ok"`.
+  6. Paste the Render URL (public, not a secret) in the thread. Claude adds it to `client/vercel.json` (the `/v1` rewrite) and pushes.
+- *Part B — web app on Vercel* (after Claude pushes `vercel.json`)
+  1. vercel.com → **Add New → Project** → import `holdtil`. Root directory: `client`. Framework: Vite. No env vars needed.
+  2. Deploy. Copy the URL (e.g. `https://holdtil.vercel.app`) and set it as `APP_ORIGIN` on Render (Part A step 3). Render redeploys.
+  3. Check: open the Vercel URL → sign in with Base works, dashboard shows your agents, `/proof` shows Scout.
+- *Part C — timer (cron-job.org, free)*
+  1. Create a job: URL `https://<your-service>.onrender.com/internal/tick`, method **POST**, every **5 minutes**, header `x-tick-secret` = your `TICK_SECRET`.
+  2. Create a second job: URL `https://<your-service>.onrender.com/health`, method GET, every **10 minutes**. **This is the keep-alive:** each call pings MongoDB, so the Atlas free cluster never pauses for inactivity, and Render stays awake.
+  3. Check: the cron-job.org history shows 200 for both; the dashboard shows new decisions every 5 minutes.
+- *Part D — Scout 24/7:* waiting for your choice in the thread (where Scout runs).
+- *Domain (optional, later):* Vercel → project → Domains → add `holdtil.xyz` and follow the DNS steps; then set `APP_ORIGIN=https://holdtil.xyz` on Render.
+- *What happens next:* Claude checks `/health`, `/proof` and the first ticks on the live URL, and records the URLs in README and REAL_VS_MOCKED.
 
 **P4-STOP — give Scout a wallet, refill it with Holdtil, approve its first real payment**
 - *What and why:* Scout is our own agent that pays x402stock.xyz ($0.03 a call) for market data. It needs its own wallet, and Holdtil should refill that wallet from your NVDAc like any agent. Its first real payment needs your approval.
@@ -135,6 +158,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Fix: Scout crashed at start with IndexOptionsConflict** (owner step 7). The server makes the `scoutRuns` indexes as `runId_unique` and `recent`; Scout made the same keys with default names. Scout now uses the same names (`ensureScoutIndexes`), +1 test that runs both orders on one database. No Atlas cleanup needed. Nothing was paid.
 
 - **2026-11-25 — Phase 4: first real Scout payment** (owner-approved, step 8): tx `0x57a8130e63de6c5ddd17daa51af113819cc8a2524f9455d4a8e912ef660cf3db`. Verified on chain: success; one USDC Transfer of 30000 ($0.03) from Scout to x402stock's payTo `0x3070Fbb3803819fB5BdfE9286fdc6325A877fA85`. Paid from 0.1 USDC the owner sent by hand. Second real refill (to Test Agent) `0x062d974c…c815` also verified. Left for Phase 4 acceptance: Scout's first Holdtil refill (2026-11-26).
+
+- **2026-11-25 — Phase 5: deploy prep.** Keep-alive (owner request): `/health` now pings MongoDB (`db: ok`, 503 if down); cron-job.org calls it every 10 min so the Atlas free cluster never pauses, and the 5-min tick also uses the DB. `Cache-Control: no-store` on `/v1` and `/internal` (Vercel external rewrites cache by default). `TRUST_PROXY_HOPS` (2 behind Vercel + Render) so rate limits are per client IP. `.node-version` 22. Dashboard retry when the API is down. +5 tests. Deploy guide P5-DEPLOY in §1.
 
 ## 11. Manual tasks (owner)
 
