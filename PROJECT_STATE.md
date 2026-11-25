@@ -3,7 +3,7 @@
 > Where the project actually stands. A progress log, not requirements (those live in `PRD.md`).
 > Update at the end of every phase. Only write what was verified. If this file and the repo disagree, the repo wins.
 
-**Last updated:** 2026-11-24 23:30 WAT · **By:** Claude · **Commit:** see §2 / §10
+**Last updated:** 2026-11-25 15:10 WAT · **By:** Claude · **Commit:** see §2 / §10
 
 ---
 
@@ -75,10 +75,10 @@
 
 | Check | Command | Result | Date |
 |---|---|---|---|
-| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 162 server tests (16 files), 8 scout tests, client build ok | 2026-11-25 |
+| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 180 server tests (18 files), 11 scout tests, client build ok | 2026-11-25 |
 | Fork tests | `npm run test:fork` | 18 passed (4 files), incl. executor batch with the real CDP spender: 0.00682772 NVDAc → 1.005479 USDC to agent, min-out 1.000451, gas 413,062 (simulation) | 2026-11-25 |
 | Real dry-run tick | `runTick` dry, in-memory DB, real RPC + CDP spender, throwaway unfunded user | real price (gap 4 bps), planned → checked → waited `simulation_failed` (user had no NVDAc), nothing sent | 2026-11-25 |
-| UI | Playwright screenshots (API mocked for layout only) | agent page with receipts at 1280 and 390: no horizontal scroll | 2026-11-25 |
+| UI | Playwright screenshots (API mocked for layout only) | redesign: landing, docs, proof, dashboard, agent at 1440 and 390, no horizontal scroll | 2026-11-25 |
 | Real wallet | owner sign-in + spend permission | pass (P2-STOP), signing only | 2026-11-25 |
 | Real refill | owner ran `npm run tick` live (owner's account only, $1 cap) | confirmed: tx `0x576245f2149007aeafc3fdc32efd2982d6fd24ae1cca4e4e72b470d75aa58655`, 0.00665098 NVDAc → 0.988785 USDC to agent (min-out 0.983841), gas 0.0000074 ETH incl. spender deploy | 2026-11-25 |
 
@@ -173,6 +173,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Checkpoint C (security review, fresh agent) and fixes.** 2 high, 4 medium, 4 low. Fixed in code: #3 raw error text (could hold the RPC key) no longer stored or returned (`safeMessage`); #4 max 5 agents per user, agents with no signed permission cost no chain reads, GET limit 120/min; #5 shared auth cap 300/min (per-IP can be faked on the Render URL); #6 tick answers 500 on any alert (cron-job.org emails), and an agent waits after 2 failed txs in 24 h; #7 `/proof` shows only the first agent registered for Scout's wallet; #8 in-flight spend counts max(planned, max payout); #9 cross-site writes refused by Origin; #10 Scout pins x402stock's payTo; workflow pins actions by SHA and installs Scout only with `--ignore-scripts`. Owner steps (guide Part 0): #1 prod CDP spender, #2 Scout-only Atlas user. Not changed: ERC-1271 signers stay allowed (gas risk now capped by #6); `npm audit` 4 high in cdp-sdk's nested zod/abitype (server passes only its own data; re-check later). +9 server tests, +1 scout test.
 
 - **2026-11-25 — Owner asks: docs, README, withdraw.** `/docs` rewritten as a plain-language guide for web2 and web3 readers (glossary, steps, when it waits, stop/revoke, dev snippet, FAQ); header link "Docs"; checked at 1280 and 390. Dashboard **Revoke** button (Base Account SDK `requestRevoke`; the user's own wallet sends it). README rewritten: simple intro, mainnet tx proof table, judge path, technical section. Withdraw guide `docs/withdraw.md` + sweep scripts, dry by default: `npm run scout:sweep` (Scout's USDC), `npm run spender[:prod] -- info|sweep [--send]` (spender ETH; also creates the prod spender with `info`). Spender sweep dry run checked against the dev spender (nothing sent).
+
+- **2026-11-25 — Frontend redesign + logo (owner picked logo A).** Pre-deploy item 1. Look: warm paper and ink with one Base-blue accent, Geist + Geist Mono + Instrument Serif (self-hosted via Fontsource), lucide icons. Logo A (two hold bars + rising stock line) in the header and as favicon (`client/public/favicon.svg`, `logo.svg`). Signature: every refill/decision is printed as a ticker-tape row (`components/Tape.jsx`); waits use the hold-bars glyph. Landing: hero with a real public-domain photo of Edison's stock ticker (Smithsonian NMAH via Wikimedia Commons, credited in the footer) and a paper tape that prints Scout's latest real decisions from `GET /v1/proof` (labelled "Example" with no hashes or dates when there are none); "how it works" cards; animated fair-price gate; rules; risks. App screens restyled with no logic change. Motion: one entrance, tape print, scroll reveal, gate animation, float bar fill; all off under reduced motion. Checked at 1440 and 390 with mocked API.
 
 ## 11. Manual tasks (owner)
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useNavigate } from 'react-router-dom';
+import { Logo } from './components/Brand.jsx';
 import { api } from './api.js';
 import { short } from './format.js';
 import Landing from './pages/Landing.jsx';
@@ -11,7 +12,7 @@ import Docs from './pages/Docs.jsx';
 
 export function Notices() {
   return (
-    <p className="small text-body-secondary mb-0">
+    <p className="notices">
       Not for US persons. Not financial advice. Stocks can go down. Holdtil never holds your funds or keys.
     </p>
   );
@@ -36,22 +37,23 @@ function useMe() {
 
 function Header({ me, onSignOut }) {
   return (
-    <header className="border-bottom">
-      <nav className="container d-flex align-items-center justify-content-between py-2" style={{ maxWidth: 960 }}>
-        <Link to={me?.user ? '/app' : '/'} className="fw-bold text-decoration-none text-body fs-5">
-          Holdtil
+    <header className="site-header">
+      <nav className="wrap site-nav" aria-label="Main">
+        <Link to={me?.user ? '/app' : '/'} className="text-decoration-none" aria-label="Holdtil home">
+          <Logo />
         </Link>
-        <div className="d-flex align-items-center gap-2">
-          <Link to="/docs" className="small">Docs</Link>
-          <Link to="/proof" className="small">Live proof</Link>
-        {me?.user && (
-          <div className="d-flex align-items-center gap-2">
-            <span className="small text-body-secondary d-none d-sm-inline">{short(me.user.address)}</span>
-            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onSignOut}>
-              Sign out
-            </button>
-          </div>
-        )}
+        <div className="site-links">
+          {me?.user && <NavLink to="/app" end className="nav-a">Dashboard</NavLink>}
+          <NavLink to="/docs" className="nav-a">Docs</NavLink>
+          <NavLink to="/proof" className="nav-a">Live proof</NavLink>
+          {me?.user && (
+            <>
+              <span className="addr d-none d-md-inline">{short(me.user.address)}</span>
+              <button type="button" className="btn btn-sm btn-quiet" onClick={onSignOut}>
+                Sign out
+              </button>
+            </>
+          )}
         </div>
       </nav>
     </header>
@@ -68,7 +70,7 @@ function Shell() {
   };
 
   const gate = (el) => {
-    if (me === undefined) return <p className="text-body-secondary">Loading…</p>;
+    if (me === undefined) return <p className="text-secondary">Loading…</p>;
     if (me?.error) return <div className="alert alert-danger">Could not load your account: {me.error}</div>;
     if (!me) return <Navigate to="/" replace />;
     return el;
@@ -76,9 +78,12 @@ function Shell() {
 
   return (
     <>
-      <div className="real-banner text-center py-1">REAL · BASE MAINNET</div>
+      <div className="real-banner">
+        <span className="live-dot" aria-hidden="true" />
+        REAL · BASE MAINNET
+      </div>
       <Header me={me} onSignOut={signOut} />
-      <main className="container py-4" style={{ maxWidth: 960 }}>
+      <main className="wrap site-main">
         <Routes>
           <Route path="/" element={me?.user ? <Navigate to={me.user.onboarded ? '/app' : '/start'} replace /> : <Landing onSignedIn={reload} />} />
           <Route path="/start" element={gate(<Start me={me} reload={reload} />)} />
@@ -86,12 +91,15 @@ function Shell() {
           <Route path="/app/agents/:id" element={gate(<Agent />)} />
           <Route path="/proof" element={<Proof />} />
           <Route path="/docs" element={<Docs />} />
-          <Route path="*" element={<p>Page not found. <Link to="/">Go home</Link></p>} />
+          <Route path="*" element={<p className="empty">Page not found. <Link to="/">Go home</Link></p>} />
         </Routes>
       </main>
-      <footer className="container pb-4" style={{ maxWidth: 960 }}>
-        <hr />
+      <footer className="wrap site-footer">
         <Notices />
+        <p className="credit">
+          Stock ticker photo: Edison Universal Stock Printer, Smithsonian National Museum of American History, public domain, via{' '}
+          <a href="https://commons.wikimedia.org/wiki/File:Thomas_Edison_stock_ticker_NMAH-JN2014-3625.jpg" target="_blank" rel="noreferrer">Wikimedia Commons</a>.
+        </p>
       </footer>
     </>
   );

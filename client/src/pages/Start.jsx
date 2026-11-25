@@ -3,18 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import AgentForm from '../components/AgentForm.jsx';
 import GrantPermission from '../components/GrantPermission.jsx';
+import { Check } from 'lucide-react';
 
 function Step({ n, title, done, active, children }) {
   return (
-    <section className={`card mb-3 ${active ? 'border-primary' : ''}`}>
-      <div className="card-body">
-        <h2 className="h6 mb-0">
-          <span className={`badge me-2 ${done ? 'text-bg-success' : 'text-bg-secondary'}`}>{done ? '✓' : n}</span>
-          {title}
-        </h2>
-        {active && <div className="mt-3">{children}</div>}
-      </div>
-    </section>
+    <li className={`step ${active ? 'is-active' : ''} ${done ? 'is-done' : ''}`} aria-current={active ? 'step' : undefined}>
+      <h2 className="step-head">
+        <span className="step-n">{done ? <Check size={16} strokeWidth={2} aria-label="Done" /> : String(n).padStart(2, '0')}</span>
+        {title}
+      </h2>
+      {active && <div className="step-body">{children}</div>}
+    </li>
   );
 }
 
@@ -40,8 +39,10 @@ export default function Start({ me, reload }) {
   };
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <h1 className="h3 mb-4">Get started</h1>
+    <div className="page">
+      <h1 className="page-title">Get started</h1>
+      <p className="page-lead">Three steps. Holdtil cannot sell anything until you sign a spend permission, and you can stop it any time.</p>
+      <ol className="steps">
       <Step n={1} title="Confirm who you are" done={onboarded} active={step === 1}>
         <form onSubmit={onboard} className="vstack gap-2">
           <div className="form-check">
@@ -53,7 +54,7 @@ export default function Start({ me, reload }) {
             <label htmlFor="terms" className="form-check-label">I understand this is not financial advice, stocks can go down, and Holdtil sells my stock only inside the limits I set.</label>
           </div>
           {error && <div className="alert alert-danger mb-0">{error}</div>}
-          <div><button className="btn btn-primary mt-2" disabled={!notUs || !terms}>Continue</button></div>
+          <div><button className="btn btn-ink mt-2" disabled={!notUs || !terms}>Continue</button></div>
         </form>
       </Step>
       <Step n={2} title="Add your agent" done={hasAgent} active={step === 2}>
@@ -70,6 +71,7 @@ export default function Start({ me, reload }) {
         <GrantPermission me={me} onDone={() => navigate('/app')} />
         <button type="button" className="btn btn-link px-0 mt-2" onClick={() => navigate('/app')}>Skip for now</button>
       </Step>
+      </ol>
     </div>
   );
 }

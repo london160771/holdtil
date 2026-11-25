@@ -65,7 +65,7 @@ export default function AgentForm({ initial, onSubmit, submitLabel }) {
       {!initial && <div className="form-text mt-0">Leave limits empty to use small safe defaults ($1 floor, $3 target, $2 per refill, $5 a day).</div>}
       {error && <div className="alert alert-danger mb-0" role="alert">{error}</div>}
       <div>
-        <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : submitLabel}</button>
+        <button className="btn btn-ink" disabled={busy}>{busy ? 'Saving…' : submitLabel}</button>
       </div>
     </form>
   );
