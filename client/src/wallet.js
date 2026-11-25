@@ -58,6 +58,8 @@ export async function grantPermission({ account, spender, token, allowance }) {
     chainId: BASE_CHAIN_ID,
     allowance: BigInt(allowance),
     periodInDays: 1,
+    // The server accepts at most 366 days; the SDK default is 'forever'.
+    end: new Date(Date.now() + 365 * 24 * 3600 * 1000),
     provider: provider(),
   });
   return api('/v1/permissions', { method: 'POST', body: { permission: signed.permission, signature: signed.signature } });

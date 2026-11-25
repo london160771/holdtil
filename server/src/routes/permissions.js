@@ -12,7 +12,8 @@ const STOCK_BY_ADDRESS = new Map(Object.values(STOCKS).map((s) => [s.address.toL
 
 const uintStr = (v, name, max) => {
   const s = typeof v === 'number' && Number.isSafeInteger(v) ? String(v) : v;
-  if (typeof s !== 'string' || !/^\d{1,78}$/.test(s)) throw invalid(`${name} must be a whole number`);
+  // Decimal or 0x-hex (the Base Account SDK sends salt as 32-byte hex).
+  if (typeof s !== 'string' || !(/^\d{1,78}$/.test(s) || /^0x[0-9a-fA-F]{1,64}$/.test(s))) throw invalid(`${name} must be a whole number`);
   const n = BigInt(s);
   if (max !== undefined && n > max) throw invalid(`${name} is too large`);
   return n;

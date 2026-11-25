@@ -46,7 +46,7 @@
 
 | Check | Command | Result | Date |
 |---|---|---|---|
-| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 114 server tests (13 files), scout 0 tests, client build ok | 2026-11-24 |
+| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 116 server tests (13 files), scout 0 tests, client build ok | 2026-11-24 |
 | Fork tests | `npm run test:fork` | 11 passed (3 files): Gate 0, read-only adapters, smart-wallet (ERC-6492) SIWE + permission signatures | 2026-11-24 |
 | Server smoke | real `src/index.js` + in-memory MongoDB + mainnet RPC | `/health` ok; SIWE sign-in with a throwaway key → 200 + session cookie; `/v1/me` ok; replayed sign-in → 401 `auth_failed` | 2026-11-24 |
 | UI | Playwright screenshots, API mocked for layout only | landing, start, dashboard, agent at 1280 and 390: no horizontal scroll | 2026-11-24 |
@@ -115,6 +115,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-24 — Checkpoint A (fresh-eyes review, separate agent).** Findings: (1, critical, not live yet) `spentToday` skipped DB docs (Date/string shapes) → fixed, throws on unknown shapes, DB→core test added; (2) limits vs actual payout → `maxPayoutUsdc` added, PRD §16; (3) `minOut` input checks → added; (4) crash could lock an agent → `simulated→waited/blocked` + `recoverStaleRefills`; (5) price units / incomplete round → refused; (6) `moveRefill` field whitelist + bigint→string; (7) `quoteSell` allowlist; (8) missing tests → added; (9) Gate 0 sim lacks reference floor → carried to Phase 3. Tests after fixes: 69 unit/API/DB, 8 fork, verify pass.
 - **2026-11-24 — Phase 2 built.** Files: `server/src/{app,index}.js`, `server/src/config/{env,limits}.js`, `server/src/db/index.js`, `server/src/auth/session.js`, `server/src/routes/{auth,me,agents,permissions}.js`, `server/src/chain/spendPermission.js`, `server/test/api/*`, `server/test/fork/smartWalletSignatures.test.js`, `client/src/{App,api,format,wallet}.js(x)`, `client/src/pages/*`, `client/src/components/*`, `server/.env.example`, `server/package.json` (dev reads `.env`). Tests: verify pass, 114 server tests; 11 fork tests. Tx hashes: none. Env changes (names): `APP_ORIGIN`, `SPENDER_ADDRESS`, `MONGODB_URI` now required. Limits: real wallet sign-in and permission signing not tried yet (P2-STOP); Vercel → Render same-origin rewrite not written yet (Phase 5). Next: owner check, then Phase 3.
 - **2026-11-25 — P2-STOP fix.** Owner's first sign-in showed "Wrong network" (the wallet signed a message for another chain). Fix: the app now switches the Base Account provider to Base and builds the sign-in message itself with chain 8453; the server error names the chain it got. verify pass (114 tests). Owner to re-pull and retry.
+- **2026-11-25 — P2-STOP fix 2.** Sign-in and Add agent worked for the owner. Signing the permission failed with "salt must be a whole number": the Base Account SDK sends salt as 32-byte hex and defaults `end` to forever. Fix: server accepts decimal or hex numbers; app sets `end` to 365 days (server max 366). 2 new API tests; verify pass (116 tests).
 
 ## 11. Manual tasks (owner)
 

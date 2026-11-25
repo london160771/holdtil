@@ -24,6 +24,28 @@ describe('spend permissions (FR-PRM-001/002)', () => {
     expect(list.body.permissions[0]).toMatchObject({ status: 'active', remaining: '2000000' });
   });
 
+  it('accepts the Base Account SDK shape: hex salt, 365-day end', async () => {
+    const me = newUser();
+    const a = await signIn(app, me);
+    const saltHex = '0x' + 'ab'.repeat(32);
+    const now = Math.floor(Date.now() / 1000);
+    const body = await signedPermission(me, { salt: BigInt(saltHex), start: now, end: now + 365 * 86_400 });
+    body.permission.salt = saltHex;
+    const res = await a.post('/v1/permissions').send(body);
+    expect(res.status).toBe(201);
+    expect(res.body.permission.salt).toBe(BigInt(saltHex).toString());
+  });
+
+  it('rejects a salt that is not a number', async () => {
+    const me = newUser();
+    const a = await signIn(app, me);
+    const body = await signedPermission(me);
+    body.permission.salt = '0xzz';
+    const res = await a.post('/v1/permissions').send(body);
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('permission_invalid');
+  });
+
   it('needs onboarding first', async () => {
     const me = newUser();
     const a = await signIn(app, me, { onboard: false });
