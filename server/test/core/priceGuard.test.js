@@ -25,6 +25,13 @@ describe('priceGuard (INV-2)', () => {
     expect(r).toMatchObject({ ok: false, code: 'price_gap_too_wide' });
   });
 
+  it('a reference a few seconds newer than our clock read counts as fresh; beyond the skew it is refused', () => {
+    expect(checkPrice({ ...base, now: 990n })).toMatchObject({ ok: false, code: 'price_stale', reason: 'reference time is in the future' });
+    expect(checkPrice({ ...base, now: 990n, maxFutureSkewSec: 30n })).toEqual({ ok: true, gapBps: 0n, ageSec: 0n });
+    expect(checkPrice({ ...base, now: 970n, maxFutureSkewSec: 30n })).toMatchObject({ ok: true });
+    expect(checkPrice({ ...base, now: 969n, maxFutureSkewSec: 30n })).toMatchObject({ ok: false, code: 'price_stale' });
+  });
+
   it('fails closed on missing, zero, negative or future data', () => {
     expect(checkPrice({ ...base, refPrice: undefined })).toMatchObject({ ok: false, code: 'price_stale' });
     expect(checkPrice({ ...base, refPrice: 0n })).toMatchObject({ ok: false, code: 'price_stale' });

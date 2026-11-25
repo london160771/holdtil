@@ -448,3 +448,18 @@ describe('owner live run report (2026-11-25): dry run then live in the same 5-mi
     expect(resultFor(await dry(ex, now), agentId)).toMatchObject({ result: 'skipped', reason: expect.stringMatching(/5-minute window/) });
   });
 });
+
+describe('owner live run report #2 (2026-11-25): reference newer than the block-time read', () => {
+  it('a reference 5 s ahead of our block time is fresh, not stale', async () => {
+    const { agentId } = await setupUser();
+    const ex = fakeExecutor(chain, { refAgeSec: -5n });
+    expect(resultFor(await live(ex), agentId)).toMatchObject({ result: 'confirmed' });
+  });
+
+  it('a reference far in the future still waits', async () => {
+    const { agentId } = await setupUser();
+    const ex = fakeExecutor(chain, { refAgeSec: -120n });
+    expect(resultFor(await live(ex), agentId)).toMatchObject({ result: 'waited', code: 'price_stale' });
+    expect(ex.s.sends).toHaveLength(0);
+  });
+});

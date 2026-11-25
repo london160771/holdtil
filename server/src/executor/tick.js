@@ -130,6 +130,7 @@ async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId
     quotePrice,
     maxPriceAgeSec: EXECUTOR.maxPriceAgeSec,
     maxGapBps: EXECUTOR.maxGapBps,
+    maxFutureSkewSec: EXECUTOR.maxFutureSkewSec,
     refDecimals: ref.decimals,
     quoteDecimals: ref.decimals,
     roundId: ref.roundId,

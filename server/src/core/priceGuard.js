@@ -26,7 +26,7 @@ export function gapBps(quotePrice, refPrice) {
  * Unknown or odd data → no sale.
  * @returns {{ok:true, gapBps:bigint, ageSec:bigint} | {ok:false, code:string, reason:string, gapBps?:bigint, ageSec?:bigint}}
  */
-export function checkPrice({ refPrice, refUpdatedAt, now, quotePrice, maxPriceAgeSec, maxGapBps, refDecimals, quoteDecimals, roundId, answeredInRound }) {
+export function checkPrice({ refPrice, refUpdatedAt, now, quotePrice, maxPriceAgeSec, maxGapBps, refDecimals, quoteDecimals, roundId, answeredInRound, maxFutureSkewSec = 0n }) {
   for (const [k, v] of Object.entries({ refPrice, refUpdatedAt, now, quotePrice, maxPriceAgeSec, maxGapBps })) {
     if (typeof v !== 'bigint') return { ok: false, code: 'price_stale', reason: `${k} unavailable` };
   }
@@ -39,8 +39,13 @@ export function checkPrice({ refPrice, refUpdatedAt, now, quotePrice, maxPriceAg
     }
   }
   if (refPrice <= 0n || refUpdatedAt <= 0n) return { ok: false, code: 'price_stale', reason: 'reference unavailable' };
-  const ageSec = now - refUpdatedAt;
-  if (ageSec < 0n) return { ok: false, code: 'price_stale', reason: 'reference time is in the future', ageSec };
+  let ageSec = now - refUpdatedAt;
+  // RPC reads can land on a slightly newer block than our clock read (load-balanced nodes, a new block in
+  // between). A few seconds "in the future" is a brand-new price, not a bad one. Beyond the skew: refuse.
+  if (ageSec < 0n) {
+    if (typeof maxFutureSkewSec !== 'bigint' || -ageSec > maxFutureSkewSec) return { ok: false, code: 'price_stale', reason: 'reference time is in the future', ageSec };
+    ageSec = 0n;
+  }
   if (ageSec > maxPriceAgeSec) return { ok: false, code: 'price_stale', reason: `reference is ${ageSec}s old`, ageSec };
   if (quotePrice <= 0n) return { ok: false, code: 'price_gap_too_wide', reason: 'no usable quote', ageSec };
   const gap = gapBps(quotePrice, refPrice);
