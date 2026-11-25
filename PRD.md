@@ -10,7 +10,7 @@
 | **Owner** | Adesope (Ayyoweb3) |
 | **Hackathon / track** (H) | Base Stocks Maxxing Season — Agentic Stock Finance (also ask partners if Programmable Stock Markets can be entered too) |
 | **Application deadline** (H) | 2026-12-05, 11:59pm EST (= 2026-12-06, 05:59 WAT) |
-| **Official deadline** (H) | 2026-12-12 — no time given; rules default to UTC. Treat as 2026-12-12 00:00 UTC (01:00 WAT) to be safe |
+| **Official deadline** (H) | 2026-12-12, 11:59 PM UTC (base.org/stocksmaxxing FAQ, checked 2026-11-25). Entry = public X post with a video demo tagging @buildonbase + the submission form |
 | **Internal cutoff** (H) | 2026-12-11, 12:00 WAT |
 | **Links** | Repo: https://github.com/london160771/holdtil · Live: [ ] (holdtil.xyz planned) · Video: [ ] · Public proof page: [ ] · X: @holdtil [ ] |
 
@@ -272,9 +272,11 @@ No extra MVP endpoints beyond this table.
 | Aerodrome Slipstream (per Gate 0) | Stock → USDC swap with min-out | `server/src/chain/quote.js`, `server/src/chain/refillBatch.js` |
 | CDP smart account (spender) | Sends the refill batch as one ERC-4337 user op; holds gas only | `server/src/chain/spender.js`, `server/src/chain/executorChain.js` |
 | x402 | How agents pay; Scout pays x402stock | `scout/*` |
+| Base Builder Codes (ERC-8021) | Tags every refill user op so Base attributes the activity to Holdtil (attribution only; on when `BUILDER_CODE` is set) | `server/src/chain/builderCode.js`, `server/src/chain/executorChain.js` |
 
 - **Evaluated and rejected:** Anvil fork for B20 flows (can't run B20 precompiles); 0x / aggregator API (not needed: direct Aerodrome pool is deep enough for small refills, and one fewer API key); the Chainlink 24/7 NVDA feed (we want the 24/5 reference so weekends read as stale and we wait).
 - **Upstream contribution:** none planned.
+- **Hackathon partners (base.org/stocksmaxxing, 2026-11-25):** Agentic Stock Finance partners are Bankr and BaseStonk. Neither is used yet; options are being chosen with the owner (pre-deploy agenda item 2).
 
 ---
 
@@ -364,6 +366,7 @@ No extra MVP endpoints beyond this table.
 | 2026-11-25 | Keep-alive: `GET /health` pings MongoDB; cron-job.org calls it every 10 min (plus the 5-min tick). API responses send `Cache-Control: no-store`; `TRUST_PROXY_HOPS=2` behind Vercel + Render | Atlas free clusters pause after inactivity (owner); Vercel external rewrites cache by default and set `x-forwarded-for` to the client IP (vercel.com/docs/routing/rewrites, /headers/request-headers) |
 | 2026-11-25 | Scout runs 24/7 from GitHub Actions, hourly (`.github/workflows/scout.yml`); key and Mongo URI as repo secrets, `SCOUT_MODE` as a repo variable. Returns `budget_reached` once the daily budget can't cover a call | Owner's choice: free, separate from the Holdtil server; Scout's own guards still cap spend |
 | 2026-11-25 | Tagline is now "Your agent's **budget** stays invested until it pays." (was "money") | More exact: the stock sits in the owner's Base Account and the agent wallet only holds a small USDC float. Owner approved in the build thread |
+| 2026-11-25 | Base Builder Code (ERC-8021) on every refill user op via CDP `sendUserOperation({ dataSuffix })`; the simulation uses the same suffixed calldata. Code comes from `BUILDER_CODE` (public; from Base Dashboard). Empty = no tag; malformed = server won't start. Not on Scout's x402 payments: those are signed authorizations that the facilitator submits, so we don't control their calldata | docs.base.org/apps/builder-codes/app-developers; fork test: suffix adds 458 gas, same USDC to agent; suffix matches the docs example byte for byte |
 ---
 
 ## 17. Real vs mocked

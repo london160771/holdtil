@@ -15,7 +15,7 @@ if (missing.length) {
 const { db } = await connectDb(config.mongoUri, 'holdtil');
 await ensureIndexes(db);
 const client = getPublicClient(config.rpcUrl);
-const app = createApp({ db, config, chain: chainDeps(client), executorChain: executorChain(client, { spenderAddress: config.spenderAddress }) });
+const app = createApp({ db, config, chain: chainDeps(client), executorChain: executorChain(client, { spenderAddress: config.spenderAddress, dataSuffix: config.dataSuffix }) });
 console.log(`[startup] executor mode: ${config.executorMode}`);
 app.listen(config.port, () => {
   console.log(`[startup] Holdtil API listening on :${config.port}`);

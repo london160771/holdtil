@@ -14,6 +14,15 @@
 - **Next step:** Owner: P5-DEPLOY when ready (the owner always deploys). 2026-11-26: P4-STOP step 6 (refill Scout). Claude: Checkpoint C.
 - **Blocked by:** nothing for Claude. Owner steps above.
 
+**P5-BUILDER — turn on Base Builder Codes (owner, ~5 min)**
+- *What and why:* every refill can carry Holdtil's Base Builder Code, so Base counts that onchain activity as Holdtil's (base.dev leaderboards, future rewards). Code is done and tested; it stays off until you set the code.
+- *Steps:*
+  1. Open dashboard.base.org, sign in, create a project named Holdtil (URL = your Vercel URL or holdtil.xyz).
+  2. Settings → Project Settings → **Builder Code**. Copy the short code (looks like `bc_b7k3p9da`). It is public, not a secret.
+  3. Set `BUILDER_CODE=` that code in `server/.env` on your PC, and on Render → Environment when you deploy.
+- *Check it worked:* the next real refill (your approval = running it, as before) → copy its user-op hash or tx hash → builder-code-checker.vercel.app → **Check Attribution** shows your code. Paste the tx hash in the thread.
+- *What happens next:* Claude confirms the tag on chain and records it in REAL_VS_MOCKED.
+
 **P5-DEPLOY — put Holdtil online (owner only; agents never deploy)**
 - *What and why:* run the API on Render, the web app on Vercel (same domain, so sign-in cookies work), and a 5-minute timer that runs refills and keeps Render and MongoDB Atlas awake. Live refills stay limited to your account with the $1 cap (rollout step 4).
 - *Before you start:* merge the Holdtil pull request into `main` (Claude opens it). Render and Vercel deploy from `main`.
@@ -180,6 +189,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — README rewrite + first-time guide (owner request).** README now covers: the problem, who needs it, where the money sits (stock balance in the owner's Base Account vs USDC float in the agent wallet, with a worked refill), features, a new-user guide, day-to-day use, adding a real agent (and the live-list rollout limit), accounts (one Base Account per user, data scoped per user), security (can / cannot), security proof (mainnet txs, break-it tests, fork tests, reviews), why Base, tech stack. `/docs` gets "First time here", "Where your money sits" and a rollout FAQ. No code logic changed. verify pass (180 server, 11 scout).
 
 - **2026-11-25 — New opening copy (owner wrote it).** README intro and landing hero now lead with "Your agent's budget should be working, even when it's not spending." Landing: hero sub, "How it works" intro, and a closing line before Risks. Tagline "budget stays invested until it pays" stays for the page description and X bio.
+
+- **2026-11-25 — Base Builder Codes (sponsor item 2, owner pick 1).** Files: `server/src/chain/builderCode.js` (new), `executorChain.js` (suffix on send and in the simulation), `config/env.js` (`BUILDER_CODE`), `index.js`, `scripts/tick.js`, `server/package.json` (+`ox`), tests `test/builderCode.test.js` (6) and one fork case. Tests: verify pass (186 server, 11 scout); fork `executor.fork.test.js` 8 passed: tagged batch pays the agent the same USDC, +458 gas. Tx hashes: none. Env: `BUILDER_CODE` (new, public). Limits: x402 payments can't be tagged (facilitator submits them); off until the owner sets the code (P5-BUILDER). Docs: PRD §15/§16 + deadline fixed to 12 Dec 23:59 UTC, CLAUDE.md gotcha, REAL_VS_MOCKED.
 
 ## 11. Manual tasks (owner)
 

@@ -123,6 +123,7 @@ All in **PRD §11** (INV-1 to INV-7, state machine, error codes). Every one hold
 - x402stock.xyz uses x402 **v2** (`payment-required` header, base64 JSON, `exact` scheme, `eip155:8453`). Use `@x402/fetch` + `@x402/evm`.
 - CDP SDK reads `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET` from env. "Project has no secret" = no Wallet Secret registered in that CDP project.
 - ESLint 10 flat config tracks JSX usage itself; no React plugin needed.
+- Builder Codes (ERC-8021) go on refill user ops through CDP `sendUserOperation({ dataSuffix })`, built with `ox/erc8021`. x402 payments can't carry one: the facilitator submits them.
 
 ## 10. Workflow — continuous phases, stop only when needed
 
