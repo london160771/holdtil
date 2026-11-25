@@ -33,7 +33,7 @@
   1. Create a job: URL `https://<your-service>.onrender.com/internal/tick`, method **POST**, every **5 minutes**, header `x-tick-secret` = your `TICK_SECRET`.
   2. Create a second job: URL `https://<your-service>.onrender.com/health`, method GET, every **10 minutes**. **This is the keep-alive:** each call pings MongoDB, so the Atlas free cluster never pauses for inactivity, and Render stays awake.
   3. Check: the cron-job.org history shows 200 for both; the dashboard shows new decisions every 5 minutes.
-- *Part D — Scout 24/7 (recommended: GitHub Actions, hourly; waiting for your pick in the thread)*
+- *Part D — Scout 24/7 on GitHub Actions, hourly (owner chose 2026-11-25). Do this after the PR is merged into `main`; schedules only run from `main`.*
   1. GitHub → `holdtil` repo → **Settings → Secrets and variables → Actions → New repository secret**: `SCOUT_PRIVATE_KEY` (copy it from your `scout/.env` yourself, never into chat) and `MONGODB_URI`.
   2. Same page → **Variables** tab → `SCOUT_MODE` = `live`.
   3. **Actions** tab → `scout` → **Run workflow** once. Check: the log ends with `"status":"paid"` (or `budget_reached` once $0.30 is spent that day); `/proof` shows the run. After that it runs by itself every hour at :17.

@@ -362,6 +362,7 @@ No extra MVP endpoints beyond this table.
 | 2026-11-25 | Rate limits are in memory, per IP, per minute: `/v1/auth` 20, writes on `/v1/*` 30, `/v1/proof` 60, `/internal` 10. New error code `rate_limited` (429, retryable, `Retry-After` header) | One API instance on Render; no extra service needed (§12 security) |
 | 2026-11-25 | First real Scout x402 payment: tx `0x57a8130e63de6c5ddd17daa51af113819cc8a2524f9455d4a8e912ef660cf3db` (0.03 USDC to x402stock, HTTP 200). Funded by a manual 0.1 USDC transfer because the day's permission allowance was used; the first Holdtil refill of Scout follows on 2026-11-26 | Owner chose not to wait a day |
 | 2026-11-25 | Keep-alive: `GET /health` pings MongoDB; cron-job.org calls it every 10 min (plus the 5-min tick). API responses send `Cache-Control: no-store`; `TRUST_PROXY_HOPS=2` behind Vercel + Render | Atlas free clusters pause after inactivity (owner); Vercel external rewrites cache by default and set `x-forwarded-for` to the client IP (vercel.com/docs/routing/rewrites, /headers/request-headers) |
+| 2026-11-25 | Scout runs 24/7 from GitHub Actions, hourly (`.github/workflows/scout.yml`); key and Mongo URI as repo secrets, `SCOUT_MODE` as a repo variable. Returns `budget_reached` once the daily budget can't cover a call | Owner's choice: free, separate from the Holdtil server; Scout's own guards still cap spend |
 ---
 
 ## 17. Real vs mocked
