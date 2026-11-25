@@ -357,6 +357,7 @@ No extra MVP endpoints beyond this table.
 | 2026-11-25 | Phase 3 acceptance met: first real refill on Base mainnet, tx `0x576245f2149007aeafc3fdc32efd2982d6fd24ae1cca4e4e72b470d75aa58655` (0.00665098 NVDAc → 0.988785 USDC, min-out 0.983841, one ERC-4337 user op that also deployed the spender) | Evidence for Option A on mainnet |
 | 2026-11-25 | Scout: an EOA with its own key (`SCOUT_PRIVATE_KEY`, scout/.env only), pays `market-pulse` ($0.03) via x402 v2 `exact` on Base USDC. Guards: Base USDC only, ≤ $0.10 per call, daily budget (default $0.30, `SCOUT_DAILY_MAX_USDC`), cost reserved before paying, unclear outcomes keep the cost reserved. `dry` by default; `SCOUT_MODE=live` to pay. Writes runs straight to `scoutRuns` | Smallest real agent; x402 `exact` needs no ETH in the payer |
 | 2026-11-25 | `/v1/proof` shows Scout runs and the refills of the agent whose wallet = `SCOUT_ADDRESS` (public address in server env); no user ids; balance "unavailable" when the chain read fails | FR-PRF-001; only our own agent is public |
+| 2026-11-25 | Each tick refills agents in order of need: biggest USDC gap below the floor first, unreadable balances last, ties in DB order. The order only; every decision still reads the balance fresh | Owner's agents share one Spend Permission allowance; a $0 agent was starved by one just under its floor (tx `0x062d974c…c815`) |
 ---
 
 ## 17. Real vs mocked

@@ -4,7 +4,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { decodeFunctionData, getAddress } from 'viem';
 import { startDb, makeApp, newUser, signIn, signedPermission, fakeChain, config as baseConfig, SPENDER } from '../api/helpers.js';
-import { runTick, tickIdFor } from '../../src/executor/tick.js';
+import { runTick, tickIdFor, orderByNeed } from '../../src/executor/tick.js';
 import { buildRefillCalls } from '../../src/chain/refillBatch.js';
 import { routerAbi } from '../../src/chain/abis.js';
 import { ADDRESSES, STOCKS } from '../../src/config/addresses.js';
@@ -377,6 +377,24 @@ describe('Checkpoint B fixes', () => {
     const sum = await live(ex);
     expect(resultFor(sum, agentId)).toMatchObject({ code: 'limit_exceeded', reason: 'over user daily limit' });
     expect(ex.s.sends).toHaveLength(0);
+  });
+
+  it('agents sharing one allowance: the emptiest wallet is refilled first', async () => {
+    const { a, agentId, wallet } = await setupUser();
+    const second = await a.post('/v1/agents').send({ name: 'Empty', walletAddress: newUser().address });
+    chain.state.balances.set(getAddress(wallet), 900_000n); // first agent only slightly below its $1 floor; second has $0
+    const ex = fakeExecutor(chain);
+    const ids = new Set([agentId, second.body.agent.id]);
+    const order = (await live(ex)).agents.map((r) => r.agentId).filter((id) => ids.has(id));
+    expect(order).toEqual([second.body.agent.id, agentId]);
+  });
+
+  it('orderByNeed: biggest gap below floor first, unreadable balances last', async () => {
+    const mk = (id, floor) => ({ _id: id, walletAddress: id, floorUsdc: String(floor) });
+    const bal = { a: 900_000n, b: 0n, c: 2_000_000n };
+    const c = { readUsdcBalance: async (w) => { if (!(w in bal)) throw new Error('rpc'); return bal[w]; } };
+    const out = await orderByNeed(c, [mk('x', 1_000_000), mk('a', 1_000_000), mk('c', 1_000_000), mk('b', 1_000_000)]);
+    expect(out.map((g) => g._id)).toEqual(['b', 'a', 'c', 'x']);
   });
 
   it('permission allowance used up → allowance_exhausted, no tx', async () => {

@@ -338,6 +338,30 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
 }
 
 /**
+ * Neediest agent first, so agents of one owner sharing a permission allowance don't starve an empty
+ * wallet (owner report 2026-11-25). Order only: each agent's decision re-reads its balance fresh.
+ * Sort key = USDC below floor (biggest gap first); unreadable balances go last; ties keep DB order.
+ */
+export async function orderByNeed(chain, agents) {
+  const keyed = await Promise.all(
+    agents.map(async (a, i) => {
+      let gap;
+      try {
+        gap = BigInt(a.floorUsdc) - (await chain.readUsdcBalance(a.walletAddress));
+      } catch {
+        gap = null;
+      }
+      return { a, i, gap };
+    }),
+  );
+  keyed.sort((x, y) => {
+    if (x.gap === null || y.gap === null) return (x.gap === null) - (y.gap === null) || x.i - y.i;
+    return x.gap === y.gap ? x.i - y.i : y.gap > x.gap ? 1 : -1;
+  });
+  return keyed.map((k) => k.a);
+}
+
+/**
  * One tick. mode: 'dry' (default, sends nothing) or 'live' (owner-enabled only).
  */
 export async function runTick({ db, chain, config, mode = 'dry', now = new Date() }) {
@@ -374,7 +398,7 @@ export async function runTick({ db, chain, config, mode = 'dry', now = new Date(
     summary.error = 'chain_unavailable';
     return summary;
   }
-  const agents = await db.collection('agents').find({ status: 'active' }).toArray();
+  const agents = await orderByNeed(chain, await db.collection('agents').find({ status: 'active' }).toArray());
   for (const agent of agents) {
     try {
       summary.agents.push(await processAgent({ db, chain, config, agent, tickId, now, mode }));
