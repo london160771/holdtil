@@ -21,5 +21,8 @@ export function loadConfig(env = process.env) {
     spenderAddress: env.SPENDER_ADDRESS || '',
     // Cookies are Secure on https. The client reaches the API through the same origin (Vercel rewrite), so SameSite=Lax.
     cookieSecure: appOrigin.startsWith('https://'),
+    tickSecret: env.TICK_SECRET || '',
+    // Refill executor: 'dry' (default; simulates, sends nothing) unless the owner sets EXECUTOR_MODE=live.
+    executorMode: env.EXECUTOR_MODE === 'live' ? 'live' : 'dry',
   };
 }

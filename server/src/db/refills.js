@@ -61,7 +61,10 @@ export async function createPlannedRefill(db, { agentId, tickId, plannedUsdc, no
  * can't both move the same refill. Clears `inFlight` on terminal states.
  */
 // Extra fields a transition may record. Money is stored as strings (INV-1).
-const MOVABLE_FIELDS = new Set(['stockAmount', 'usdcOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'txHash', 'reason']);
+const MOVABLE_FIELDS = new Set([
+  'stockAmount', 'usdcOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'txHash', 'reason',
+  'userOpHash', 'permissionHash', 'quotedOut', 'simulatedUsdcOut', 'maxPayoutUsdc', 'mode', 'sentAt', 'confirmedAt',
+]);
 
 function cleanFields(fields = {}) {
   const out = {};
@@ -70,6 +73,16 @@ function cleanFields(fields = {}) {
     out[k] = typeof v === 'bigint' ? v.toString() : v;
   }
   return out;
+}
+
+/**
+ * Records the user operation hash on a `sent` refill right after the send call returns (before waiting).
+ * Guarded by state so it can't touch anything else.
+ */
+export async function recordSendHash(db, refillId, userOpHash) {
+  if (typeof userOpHash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(userOpHash)) throw new HoldtilError('invalid_input', 'bad user operation hash');
+  const res = await db.collection(REFILLS).updateOne({ refillId, state: 'sent', userOpHash: { $exists: false } }, { $set: { userOpHash } });
+  if (res.matchedCount !== 1) throw new HoldtilError('illegal_transition', `refill ${refillId} is not a sent refill without a hash`, { status: 409 });
 }
 
 export async function moveRefill(db, refill, to, opts = {}) {

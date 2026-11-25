@@ -41,6 +41,7 @@ npm run gate0          # full Gate 0 report as JSON (needs BASE_RPC_URL; CDP key
 npm run lint           # zero warnings
 npm run build          # production build (client)
 npm run verify         # lint + test + build — the gate
+npm run tick           # one executor tick by hand (reads server/.env; dry unless EXECUTOR_MODE=live)
 ```
 
 ## 5. Scope

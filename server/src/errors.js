@@ -18,6 +18,7 @@ export const CODES = Object.freeze({
   onboarding_required: { retryable: false, nextAction: 'Confirm you are not a US person and accept the terms' },
   permission_invalid: { retryable: false, nextAction: 'Sign the permission again from your Base Account' },
   chain_unavailable: { retryable: true, nextAction: 'Try again shortly' },
+  dry_run: { retryable: true, nextAction: 'Dry run: checks and simulation passed, nothing was sent' },
   internal_error: { retryable: true, nextAction: 'Try again later' },
 });
 

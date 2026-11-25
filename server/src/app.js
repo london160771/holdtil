@@ -6,6 +6,8 @@ import { authRoutes } from './routes/auth.js';
 import { meRoutes } from './routes/me.js';
 import { agentRoutes } from './routes/agents.js';
 import { permissionRoutes } from './routes/permissions.js';
+import { refillRoutes } from './routes/refills.js';
+import { tickRoutes } from './routes/tick.js';
 import { readBalance } from './chain/balances.js';
 import { permissionHash, readPermissionStatus, verifyPermissionSignature } from './chain/spendPermission.js';
 
@@ -33,7 +35,7 @@ export function chainDeps(client) {
  * @param {{ db?: import('mongodb').Db, config?: object, chain?: object }} deps
  * Without a db only /health works (used by the basic API test).
  */
-export function createApp({ db, config, chain } = {}) {
+export function createApp({ db, config, chain, executorChain } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
@@ -49,6 +51,8 @@ export function createApp({ db, config, chain } = {}) {
     app.use('/v1/me', meRoutes({ db, config }));
     app.use('/v1/agents', agentRoutes({ db, chain }));
     app.use('/v1/permissions', permissionRoutes({ db, config, chain }));
+    app.use('/v1/refills', refillRoutes({ db }));
+    app.use('/internal', tickRoutes({ db, config, executorChain }));
   }
 
   app.use((_req, _res, next) => next(new HoldtilError('not_found', 'Route not found', { status: 404 })));

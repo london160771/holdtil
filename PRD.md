@@ -341,6 +341,14 @@ No extra MVP endpoints beyond this table.
 | 2026-11-25 | Sign in with Base: the app builds the SIWE message itself (chain 8453), switches the Base Account provider to Base first, and signs with `personal_sign`. We don't use the `wallet_connect` SIWE capability | Owner's first real try (2026-11-25) got a message for a non-Base chain → "Wrong network" |
 | 2026-11-24 | Sign in with Base: nonce is one use (atomic delete), SIWE checks domain, URI = `APP_ORIGIN`, chain 8453. Verify with viem (ERC-1271/6492); if that fails and the address has EIP-7702 code (`0xef0100…`), accept plain ECDSA recovery equal to the address | Owner's smart wallet is a 7702 account (M10); its owner key is the address itself |
 | 2026-11-24 | `GET /v1/me` also returns `chain {chainId, spenderAddress, stocks}` (public values the app needs to request a permission). New error codes: `onboarding_required`, `permission_invalid`, `chain_unavailable`, `refill_expired` | Keeps addresses server-side as the one source (CLAUDE.md §6) |
+| 2026-11-25 | Executor settings: max reference age 1 h, max gap 100 bps, quote slippage 50 bps, fee buffer 50 bps, swap deadline 300 s (`server/src/config/executor.js`) | Small safe values; the reference floor in min-out enforces the gap on chain |
+| 2026-11-25 | Refills are planned so the worst fair payout stays under `maxPerRefill` (plan ≤ max × 10000 / (10000 + buffer + gap + 10)); in-flight refills count at that upper bound | Otherwise a capped refill always fails INV-3 |
+| 2026-11-25 | Executor mode: `dry` by default (checks + `eth_simulateV1`, logs `dry_run`, sends nothing). `live` only when the owner sets `EXECUTOR_MODE=live` | Rollout steps 2 and 4 (CLAUDE.md §6) |
+| 2026-11-25 | Sending: the spender is a CDP smart account; refills go out as one ERC-4337 user operation (`sendUserOperation`, idempotency key = refill id). The refill moves to `sent` BEFORE the send call; the user-op hash is saved right after; a `sent` refill with no hash stays locked for a manual check | No double send after a crash; fail closed |
+| 2026-11-25 | Controls (global pause, Stop, agent pause, permission status) are read again right before sending | INV-7 between simulate and send |
+| 2026-11-25 | A confirmed user op whose receipt shows no USDC reaching the agent wallet is marked `failed` (`tx_failed`) | Never record a refill that didn't arrive |
+| 2026-11-25 | The same wait/block reason for an agent is logged at most once an hour; new code `dry_run` (retryable) | Keeps receipts readable on weekends (stale feed every tick) |
+| 2026-11-25 | Lab #1–7: decision-level tests with a fake chain (`test/executor`), batch behaviour on real Base state with the real CDP spender (`test/fork/executor.fork.test.js`: happy, min-out revert, revoked, allowance, destination) | B20 needs `eth_simulateV1`; full executor + fake chain keeps tests fast and offline |
 ---
 
 ## 17. Real vs mocked

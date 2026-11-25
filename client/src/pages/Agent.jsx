@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { usd } from '../format.js';
 import AgentForm from '../components/AgentForm.jsx';
+import Receipts from '../components/Receipts.jsx';
 
 export default function Agent() {
   const { id } = useParams();
@@ -54,6 +55,8 @@ export default function Agent() {
       {saved && <div className="alert alert-success">Saved.</div>}
       <h2 className="h5">Limits</h2>
       <AgentForm key={agent.updatedAt ?? 'a'} initial={agent} submitLabel="Save" onSubmit={patch} />
+      <h2 className="h5 mt-5">Refills and decisions</h2>
+      <Receipts agentId={agent.id} />
     </div>
   );
 }

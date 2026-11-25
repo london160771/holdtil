@@ -9,10 +9,10 @@
 
 ## 1. Right now
 
-- **Active phase:** Phase 3 — Refill executor (started 2026-11-25).
-- **Status:** Building. Phase 2 owner check passed (P2-STOP cleared 2026-11-25).
-- **Next step:** dry run → fork tests (lab #1–7) → stop for the owner before the first real $1 refill.
-- **Blocked by:** nothing yet. Known upcoming stops: dev spender needs a few cents of ETH for gas; owner approves the first real refill.
+- **Active phase:** Phase 3 — Refill executor: built, dry run verified on real Base state.
+- **Status:** Checkpoint B review (fresh eyes) running; then stop for the owner (CLAUDE.md §10 items 1, 3, 4).
+- **Next step:** review fixes → owner funds spender gas + runs a dry run on their own data → owner approves the first real $1 refill.
+- **Blocked by:** Checkpoint B result; then owner steps (guide posted when the review is done).
 
 ## 2. Phase tracker
 
@@ -21,7 +21,7 @@
 | 0 — Foundation + Gate 0 | Done | 2026-11-24 | `1115b8c` | Gate 0 reviewed by Opus (orchestrator); passed |
 | 1 — Core engine | Done | 2026-11-24 | `91ab9a5` + review fixes (see §10) | A done; 9 findings fixed or carried to Phase 3 |
 | 2 — Accounts, agents, permissions | Done (owner check passed 2026-11-25) | 2026-11-25 | `7628b7b` + fixes `1358c71`, `34547ab` | — |
-| 3 — Refill executor | In progress | | | B |
+| 3 — Refill executor | Built (dry run); Checkpoint B + first real refill pending | 2026-11-25 | see §10 | B |
 | 4 — Holdtil Scout + proof page | Not started | | | — |
 | 5 — Product polish + launch | Not started | | | C |
 | 6 — Video, X post, submission | Not started | | | — |
@@ -31,11 +31,12 @@
 
 | Check | Command | Result | Date |
 |---|---|---|---|
-| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 116 server tests (13 files), scout 0 tests, client build ok | 2026-11-24 |
-| Fork tests | `npm run test:fork` | 11 passed (3 files): Gate 0, read-only adapters, smart-wallet (ERC-6492) SIWE + permission signatures | 2026-11-24 |
-| Server smoke | real `src/index.js` + in-memory MongoDB + mainnet RPC | `/health` ok; SIWE sign-in with a throwaway key → 200 + session cookie; `/v1/me` ok; replayed sign-in → 401 `auth_failed` | 2026-11-24 |
-| UI | Playwright screenshots, API mocked for layout only | landing, start, dashboard, agent at 1280 and 390: no horizontal scroll | 2026-11-24 |
-| Real wallet | owner sign-in + spend permission (owner's computer, Brave, Base Account popup) | pass: signed in as `0x406b…4c56`, agent added, NVDAc permission 0.01/day signed; dashboard shows left today 0.01, status `active` (read from chain). Signing only; no tx | 2026-11-25 |
+| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 138 server tests (14 files), client build ok | 2026-11-25 |
+| Fork tests | `npm run test:fork` | 18 passed (4 files), incl. executor batch with the real CDP spender: 0.00682772 NVDAc → 1.005479 USDC to agent, min-out 1.000451, gas 413,062 (simulation) | 2026-11-25 |
+| Real dry-run tick | `runTick` dry, in-memory DB, real RPC + CDP spender, throwaway unfunded user | real price (gap 4 bps), planned → checked → waited `simulation_failed` (user had no NVDAc), nothing sent | 2026-11-25 |
+| UI | Playwright screenshots (API mocked for layout only) | agent page with receipts at 1280 and 390: no horizontal scroll | 2026-11-25 |
+| Real wallet | owner sign-in + spend permission | pass (P2-STOP), signing only | 2026-11-25 |
+| Real refill | — | **not sent yet** (needs owner approval) | — |
 
 ## 4. What works (verified)
 
@@ -102,6 +103,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — P2-STOP fix.** Owner's first sign-in showed "Wrong network" (the wallet signed a message for another chain). Fix: the app now switches the Base Account provider to Base and builds the sign-in message itself with chain 8453; the server error names the chain it got. verify pass (114 tests). Owner to re-pull and retry.
 - **2026-11-25 — P2-STOP fix 2.** Sign-in and Add agent worked for the owner. Signing the permission failed with "salt must be a whole number": the Base Account SDK sends salt as 32-byte hex and defaults `end` to forever. Fix: server accepts decimal or hex numbers; app sets `end` to 365 days (server max 366). 2 new API tests; verify pass (116 tests).
 - **2026-11-25 — Phase 2 owner check passed.** Owner signed in with Base (`0x406b…4c56`), added agent "Test Agent" (`0xbAbD…7589`), signed an NVDAc spend permission of 0.01/day. Dashboard: left today 0.01, status `active`. Data is in the owner's local dev DB; nothing on chain yet (no tx). Phase 3 started.
+- **2026-11-25 — Phase 3 built (dry run).** Files: `server/src/executor/tick.js`, `server/src/chain/{refillBatch,executorChain,spender}.js`, `server/src/config/executor.js`, `server/src/routes/{tick,refills}.js`, `server/scripts/tick.js`, `server/src/{app,index,errors}.js`, `server/src/db/refills.js`, `server/src/config/env.js`, `client/src/components/Receipts.jsx`, `client/src/pages/Agent.jsx`, tests `server/test/executor/tick.test.js` (22), `server/test/fork/executor.fork.test.js` (7). Tests: verify pass (138), fork 18. Tx hashes: none. Env (names): `EXECUTOR_MODE` (optional; unset = dry). Limits: no real refill yet; spender not deployed and has 0 ETH. Next: Checkpoint B, then owner stop.
 
 ## 11. Manual tasks (owner)
 
