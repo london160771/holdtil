@@ -30,13 +30,13 @@ Live in **PRD §16**. Treat as settled. Reopen only with new evidence.
 
 ## 4. Commands
 
-Run from the repo root. Never guess a command — read `package.json`. Node ≥ 22. Workspaces: `server/`, `client/`, `scout/`.
+Run from the repo root. Never guess a command — read `package.json`. Node ≥ 22. Workspaces: `server/`, `client/`, `scout/`, `bankr/` (fair-price check for Bankr x402 Cloud).
 
 ```bash
 npm install            # install all workspaces
 npm run dev            # API on :3001 + client on :5173
 npm test               # unit + API tests (no network)
-npm run test:fork      # Base mainnet state via eth_simulateV1 (needs BASE_RPC_URL + network; sends nothing)
+npm run test:fork      # Base mainnet state via eth_simulateV1 + live fair-price read (needs BASE_RPC_URL + network; sends nothing)
 npm run gate0          # full Gate 0 report as JSON (needs BASE_RPC_URL; CDP keys for the spender step)
 npm run lint           # zero warnings
 npm run build          # production build (client)
@@ -46,6 +46,7 @@ npm run scout          # one Holdtil Scout run (reads scout/.env; dry unless SCO
 npm run scout:new-key  # create Scout's wallet key in scout/.env (prints the address only)
 npm run scout:sweep    # move Scout's USDC to SWEEP_TO (dry unless -- --send)
 npm run spender -- info|sweep [--send]   # spender address/ETH; sweep ETH to SWEEP_TO (spender:prod reads server/.env.prod)
+npm run bankr:sync     # copy server/src/core price rules into bankr/x402/fair-price/lib (a test fails if they drift)
 ```
 
 ## 5. Scope
@@ -124,6 +125,7 @@ All in **PRD §11** (INV-1 to INV-7, state machine, error codes). Every one hold
 - CDP SDK reads `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET` from env. "Project has no secret" = no Wallet Secret registered in that CDP project.
 - ESLint 10 flat config tracks JSX usage itself; no React plugin needed.
 - Builder Codes (ERC-8021) go on refill user ops through CDP `sendUserOperation({ dataSuffix })`, built with `ox/erc8021`. x402 payments can't carry one: the facilitator submits them.
+- Bankr x402 Cloud: settles the payment only when the handler answers < 400 (so bad input = 400, chain trouble = 503); verified payer in `x-402-payer`; imports outside the service folder are rejected, so `bankr/x402/fair-price/lib` holds exact copies of `server/src/core` (`npm run bankr:sync`). The owner deploys it with `bankr x402 deploy`.
 
 ## 10. Workflow — continuous phases, stop only when needed
 

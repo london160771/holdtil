@@ -5,7 +5,7 @@ export default [
   { ignores: ['**/node_modules/**', '**/dist/**', '**/coverage/**', 'server/scripts/gate0/out/**'] },
   js.configs.recommended,
   {
-    files: ['server/**/*.js', 'scout/**/*.js', '*.js'],
+    files: ['server/**/*.js', 'scout/**/*.js', 'bankr/**/*.js', '*.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

@@ -17,7 +17,7 @@ export const config = {
   appDomain: 'localhost:5173',
   spenderAddress: SPENDER,
   cookieSecure: false,
-  rateLimits: { auth: 1e9, authGlobal: 1e9, read: 1e9, write: 1e9, proof: 1e9, internal: 1e9 }, // tests send many requests from one IP
+  rateLimits: { auth: 1e9, authGlobal: 1e9, read: 1e9, write: 1e9, proof: 1e9, internal: 1e9, checks: 1e9 }, // tests send many requests from one IP
 };
 
 export async function startDb() {

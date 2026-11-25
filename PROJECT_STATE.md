@@ -14,6 +14,24 @@
 - **Next step:** Owner: P5-DEPLOY when ready (the owner always deploys). 2026-11-26: P4-STOP step 6 (refill Scout). Claude: Checkpoint C.
 - **Blocked by:** nothing for Claude. Owner steps above.
 
+**P5-BANKR — put the fair-price check live on Bankr (owner only; agents never deploy)**
+- *What and why:* Holdtil's fair-price rule becomes a paid API ($0.01 USDC per call) hosted on Bankr x402 Cloud. Bankr runs it, takes each payment on Base and lists it for Bankr agents. Each answered check shows on `/proof`. Do this after the Render deploy (it needs your Render URL).
+- *Steps (on your PC, in the repo folder):*
+  1. `git pull`, then `npm install`.
+  2. Make a Bankr account at bankr.bot (sign in with email). Put about $0.10 of USDC on Base in your Bankr wallet for your own test calls.
+  3. Install the CLI: `npm install -g @bankr/cli`, then `bankr login` and follow the email code.
+  4. Make a new long random string (password manager) for the record secret. Never paste it in chat.
+  5. `cd bankr`, then set the handler's env on Bankr (you type the values):
+     `bankr x402 env set BASE_RPC_URL=<your CDP RPC URL>`
+     `bankr x402 env set HOLDTIL_CHECKS_URL=https://<your-render-service>.onrender.com/internal/checks`
+     `bankr x402 env set CHECK_SECRET=<the random string>`
+  6. Deploy: `bankr x402 deploy fair-price`. It prints the endpoint URL, `https://x402.bankr.bot/<your wallet>/fair-price`.
+  7. Render → Environment: `CHECK_SECRET` = the same random string, `FAIR_PRICE_URL` = the URL from step 6. Render redeploys.
+- *Your approval of the first real paid call:* `bankr x402 call "https://x402.bankr.bot/<wallet>/fair-price?usdc=1" --max-payment 0.02` (or ask your Bankr agent in chat: "call the Holdtil fair-price endpoint for $1 of NVDA").
+- *How to check it worked:* the answer has `"verdict": "sell"` or `"wait"`; `/proof` → "Fair-price checks sold on Bankr" shows it; `bankr x402 revenue` shows $0.01. Paste the endpoint URL (public) in the thread.
+- *Then:* ask in the Bankr partner Telegram to mark the endpoint discoverable, so Bankr agents can find it.
+- *What happens next:* Claude checks the live endpoint and `/proof`, and records it in REAL_VS_MOCKED.
+
 **P5-BUILDER — turn on Base Builder Codes (owner, ~5 min)**
 - *What and why:* every refill can carry Holdtil's Base Builder Code, so Base counts that onchain activity as Holdtil's (base.dev leaderboards, future rewards). Code is done and tested; it stays off until you set the code.
 - *Steps:*
@@ -191,6 +209,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — New opening copy (owner wrote it).** README intro and landing hero now lead with "Your agent's budget should be working, even when it's not spending." Landing: hero sub, "How it works" intro, and a closing line before Risks. Tagline "budget stays invested until it pays" stays for the page description and X bio.
 
 - **2026-11-25 — Base Builder Codes (sponsor item 2, owner pick 1).** Files: `server/src/chain/builderCode.js` (new), `executorChain.js` (suffix on send and in the simulation), `config/env.js` (`BUILDER_CODE`), `index.js`, `scripts/tick.js`, `server/package.json` (+`ox`), tests `test/builderCode.test.js` (6) and one fork case. Tests: verify pass (186 server, 11 scout); fork `executor.fork.test.js` 8 passed: tagged batch pays the agent the same USDC, +458 gas. Tx hashes: none. Env: `BUILDER_CODE` (new, public). Limits: x402 payments can't be tagged (facilitator submits them); off until the owner sets the code (P5-BUILDER). Docs: PRD §15/§16 + deadline fixed to 12 Dec 23:59 UTC, CLAUDE.md gotcha, REAL_VS_MOCKED.
+
+- **2026-11-25 — Fair-price check on Bankr x402 Cloud (FR-FPC-001, sponsor item 2, owner pick).** Files: `bankr/` workspace (`bankr.x402.json`, `x402/fair-price/index.ts` handler, `check.js`, `constants.js`, `lib/` = exact copies of `server/src/core`, `scripts/sync.js`, tests), `server/src/routes/checks.js` (POST `/internal/checks`), `routes/proof.js` (+`fairPrice`, `checks`), `app.js` (route + its own shared rate limit), `config/env.js` (`CHECK_SECRET`, `FAIR_PRICE_URL`), `db/index.js` (indexes), `client/src/pages/Proof.jsx` (new section; screenshots 1280 + 390 checked), PRD §9 FR-FPC-001, §14, §15, §16, §22, §26. Tests: verify pass (191 server, 11 scout, 20 bankr); live read on Base mainnet: $1 of NVDAc → `sell`, gap 10 bps, Chainlink $142.04 (20 min old), min-out 0.999034 USDC. Tx hashes: none. Env: `CHECK_SECRET`, `FAIR_PRICE_URL` (server); `BASE_RPC_URL`, `HOLDTIL_CHECKS_URL`, `CHECK_SECRET` (Bankr). Limits: not deployed (owner step P5-BANKR); Bankr discovery listing is Bankr's call; only NVDAc.
 
 ## 11. Manual tasks (owner)
 

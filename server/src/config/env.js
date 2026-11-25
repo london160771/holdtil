@@ -36,6 +36,10 @@ export function loadConfig(env = process.env) {
     liveMaxRefillUsdc: /^\d+$/.test(env.LIVE_MAX_REFILL_USDC || '') ? BigInt(env.LIVE_MAX_REFILL_USDC) : 1_000_000n,
     // Base Builder Code (public, from Base Dashboard). Tags refill user ops for attribution (ERC-8021). Empty = no tag.
     // A malformed code stops the server at start instead of being silently dropped.
+    // Fair-price check on Bankr (FR-FPC-001): shared secret for POST /internal/checks, and the public endpoint URL
+    // (https://x402.bankr.bot/<payout wallet>/fair-price) shown on /proof.
+    checkSecret: env.CHECK_SECRET || '',
+    fairPriceUrl: /^https:\/\/x402\.bankr\.bot\/0x[0-9a-fA-F]{40}\/[A-Za-z0-9_-]{1,47}$/.test(env.FAIR_PRICE_URL || '') ? env.FAIR_PRICE_URL : '',
     builderCode: (env.BUILDER_CODE || '').trim(),
     dataSuffix: builderCodeSuffix(env.BUILDER_CODE),
   };

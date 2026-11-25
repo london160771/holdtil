@@ -9,6 +9,7 @@ import { permissionRoutes } from './routes/permissions.js';
 import { refillRoutes } from './routes/refills.js';
 import { tickRoutes } from './routes/tick.js';
 import { proofRoutes } from './routes/proof.js';
+import { checkRoutes } from './routes/checks.js';
 import { rateLimit } from './rateLimit.js';
 import { readBalance } from './chain/balances.js';
 import { permissionHash, readPermissionStatus, verifyPermissionSignature } from './chain/spendPermission.js';
@@ -84,7 +85,9 @@ export function createApp({ db, config, chain, executorChain } = {}) {
     });
     app.use('/v1', rateLimit({ windowMs: 60_000, max: limits.write ?? 30, methods: write }));
     app.use('/v1/proof', rateLimit({ windowMs: 60_000, max: limits.proof ?? 60 }));
-    app.use('/internal', rateLimit({ windowMs: 60_000, max: limits.internal ?? 10 }));
+    app.use('/internal/tick', rateLimit({ windowMs: 60_000, max: limits.internal ?? 10 }));
+    // Fair-price check records come from Bankr's shared servers (one IP for many payers), so one shared cap.
+    app.use('/internal/checks', rateLimit({ windowMs: 60_000, max: limits.checks ?? 120, global: true }));
     app.use('/v1/auth', authRoutes({ db, config, chain }));
     app.use('/v1/me', meRoutes({ db, config }));
     app.use('/v1/agents', agentRoutes({ db, chain }));
@@ -92,6 +95,7 @@ export function createApp({ db, config, chain, executorChain } = {}) {
     app.use('/v1/refills', refillRoutes({ db }));
     app.use('/v1/proof', proofRoutes({ db, config, chain }));
     app.use('/internal', tickRoutes({ db, config, executorChain }));
+    app.use('/internal', checkRoutes({ db, config }));
   }
 
   app.use((_req, _res, next) => next(new HoldtilError('not_found', 'Route not found', { status: 404 })));

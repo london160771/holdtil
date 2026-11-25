@@ -1,0 +1,34 @@
+{
+  "network": "base",
+  "services": {
+    "fair-price": {
+      "description": "Is now a fair time to sell a tokenized stock for USDC on Base? Compares the Chainlink reference (fresh?) with the live Aerodrome quote (within 1%?) and answers sell, with the amount and a safe minimum out, or wait, with the reason. The same rule Holdtil uses before every refill. Facts, not financial advice.",
+      "price": "0.01",
+      "methods": ["GET", "POST"],
+      "category": "data",
+      "tags": ["tokenized-stocks", "fair-price", "chainlink", "nvda", "base"],
+      "schema": {
+        "input": {
+          "type": "object",
+          "properties": {
+            "stock": { "type": "string", "enum": ["NVDAc"], "description": "Coinbase tokenized stock on Base" },
+            "usdc": { "type": "string", "description": "USDC you want from the sale, e.g. \"1.50\" (0.10 to 1000)" }
+          },
+          "required": ["usdc"]
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "verdict": { "type": "string", "enum": ["sell", "wait"] },
+            "reason": { "type": ["string", "null"] },
+            "detail": { "type": "string" },
+            "gapBps": { "type": ["number", "null"] },
+            "reference": { "type": "object" },
+            "pool": { "type": "object" },
+            "sell": { "type": "object", "properties": { "stockAmount": { "type": "string" }, "minUsdcOut": { "type": "string" } } }
+          }
+        }
+      }
+    }
+  }
+}
