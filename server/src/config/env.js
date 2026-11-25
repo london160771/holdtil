@@ -24,5 +24,9 @@ export function loadConfig(env = process.env) {
     tickSecret: env.TICK_SECRET || '',
     // Refill executor: 'dry' (default; simulates, sends nothing) unless the owner sets EXECUTOR_MODE=live.
     executorMode: env.EXECUTOR_MODE === 'live' ? 'live' : 'dry',
+    // Rollout step 4: in live mode only these accounts get real refills; everyone else stays dry.
+    liveUsers: (env.LIVE_USER_ADDRESSES || '').split(',').map((a) => a.trim()).filter((a) => /^0x[0-9a-fA-F]{40}$/.test(a)),
+    // Hard cap per real refill while rolling out (USDC base units). Default $1.
+    liveMaxRefillUsdc: /^\d+$/.test(env.LIVE_MAX_REFILL_USDC || '') ? BigInt(env.LIVE_MAX_REFILL_USDC) : 1_000_000n,
   };
 }

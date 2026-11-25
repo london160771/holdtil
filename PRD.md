@@ -349,6 +349,8 @@ No extra MVP endpoints beyond this table.
 | 2026-11-25 | A confirmed user op whose receipt shows no USDC reaching the agent wallet is marked `failed` (`tx_failed`) | Never record a refill that didn't arrive |
 | 2026-11-25 | The same wait/block reason for an agent is logged at most once an hour; new code `dry_run` (retryable) | Keeps receipts readable on weekends (stale feed every tick) |
 | 2026-11-25 | Lab #1–7: decision-level tests with a fake chain (`test/executor`), batch behaviour on real Base state with the real CDP spender (`test/fork/executor.fork.test.js`: happy, min-out revert, revoked, allowance, destination) | B20 needs `eth_simulateV1`; full executor + fake chain keeps tests fast and offline |
+| 2026-11-25 | Checkpoint B fixes: live mode only for accounts in `LIVE_USER_ADDRESSES` (others run dry) with a per-refill cap `LIVE_MAX_REFILL_USDC` (default $1), checked again right before send; chain time read fresh per agent and for the swap deadline; agent and user re-read under the lock; token decimals read on chain each tick (mismatch = no sales); CDP idempotency key is a UUID v4 derived from the refill id; settle reads our own `UserOperationEvent` success flag and counts only pool → agent USDC; "included but no USDC seen" or "op not in receipt" stays locked with an alert; a send whose hash can't be saved is logged and alerted | Fresh-eyes review findings 1–7 |
+| 2026-11-25 | Deferred to Checkpoint C: accept only Coinbase Smart Wallet / known 7702 accounts as permission signers (any ERC-1271 contract can burn spender gas); alert after 3 `simulation_failed`; owner alert channel for `alert: true` | Review findings 8–9; low risk at rollout step 4 (owner only) |
 ---
 
 ## 17. Real vs mocked

@@ -77,11 +77,12 @@ async function todaySpend(db, { agentId, userId, excludeRefillId, nowSec }) {
 /**
  * Read-only checks (nothing written). Returns the full sale plan or the first reason to stop.
  */
-async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId }) {
+async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId, liveCap }) {
   const agentId = String(agent._id);
   const balance = await chain.readUsdcBalance(agent.walletAddress);
   // Plan small enough that even the worst fair payout stays under the per-refill max (INV-3).
-  const capForPlan = (toBig(agent.maxPerRefillUsdc) * 10_000n) / (10_000n + EXECUTOR.bufferBps + EXECUTOR.maxGapBps + 10n);
+  const maxPer = liveCap !== undefined && liveCap < toBig(agent.maxPerRefillUsdc) ? liveCap : toBig(agent.maxPerRefillUsdc);
+  const capForPlan = (maxPer * 10_000n) / (10_000n + EXECUTOR.bufferBps + EXECUTOR.maxGapBps + 10n);
   const need = planRefillUsdc({
     balanceUsdc: balance,
     floorUsdc: toBig(agent.floorUsdc),
@@ -145,7 +146,7 @@ async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId
   const spent = await todaySpend(db, { agentId, userId: String(user._id), excludeRefillId, nowSec });
   const limits = checkLimits({
     refillUsdc: payout,
-    maxPerRefillUsdc: toBig(agent.maxPerRefillUsdc),
+    maxPerRefillUsdc: maxPer,
     agentSpentTodayUsdc: spent.agent,
     agentDailyLimitUsdc: toBig(agent.dailyLimitUsdc),
     userSpentTodayUsdc: spent.user,
@@ -183,12 +184,14 @@ function pick(facts) {
 
 /** Settles a `sent` refill from chain. Pending stays sent. No hash = leave it locked and report (fail closed). */
 async function settleSent(db, chain, refill, timeoutSec = 5) {
-  if (!refill.userOpHash) return { refillId: refill.refillId, state: 'sent', note: 'no hash recorded; check the spender on chain by hand' };
+  if (!refill.userOpHash) return { refillId: refill.refillId, state: 'sent', alert: true, note: 'no hash recorded; check the spender on chain by hand' };
   const agent = await db.collection('agents').findOne({ _id: await toObjectId(refill.agentId) });
-  const res = await chain.checkRefill({ userOpHash: refill.userOpHash, agentWallet: agent?.walletAddress, timeoutSec });
+  if (!agent?.walletAddress) return { refillId: refill.refillId, state: 'sent', alert: true, note: 'agent record missing; check by hand' };
+  const res = await chain.checkRefill({ userOpHash: refill.userOpHash, agentWallet: agent.walletAddress, timeoutSec });
+  // Review fix (Checkpoint B #4): our user op succeeded but we can't see the USDC → stay locked and alert.
+  // Never free the agent or count $0 when stock may have been sold.
   if (res.status === 'complete' && (typeof res.usdcOut !== 'bigint' || res.usdcOut <= 0n)) {
-    await moveRefill(db, refill, 'failed', { code: 'tx_failed', note: 'included on chain but no USDC reached the agent wallet', fields: { txHash: res.txHash } });
-    return { refillId: refill.refillId, state: 'failed', txHash: res.txHash };
+    return { refillId: refill.refillId, state: 'sent', alert: true, txHash: res.txHash, note: 'included on chain but no USDC seen at the agent wallet; check by hand' };
   }
   if (res.status === 'complete') {
     await moveRefill(db, refill, 'confirmed', { fields: { txHash: res.txHash, usdcOut: res.usdcOut, confirmedAt: new Date().toISOString() } });
@@ -198,6 +201,7 @@ async function settleSent(db, chain, refill, timeoutSec = 5) {
     await moveRefill(db, refill, 'failed', { code: 'tx_failed', note: res.error ?? 'user operation failed', fields: res.txHash ? { txHash: res.txHash } : {} });
     return { refillId: refill.refillId, state: 'failed' };
   }
+  if (res.status === 'unknown') return { refillId: refill.refillId, state: 'sent', alert: true, txHash: res.txHash, note: 'our user op was not found in the receipt; check by hand' };
   return { refillId: refill.refillId, state: 'sent', note: 'still pending' };
 }
 
@@ -207,14 +211,25 @@ async function toObjectId(id) {
 }
 
 /** Full path for one agent. Returns a summary line. */
-export async function processAgent({ db, chain, config, agent, tickId, now, nowSec, mode, stock = STOCKS.NVDAc }) {
+/** Live only for owner-listed accounts (rollout step 4); everyone else runs as a dry run. */
+export function agentMode(mode, user, config) {
+  if (mode !== 'live') return 'dry';
+  const allowed = (config.liveUsers ?? []).map((a) => a.toLowerCase());
+  return user?.address && allowed.includes(user.address.toLowerCase()) ? 'live' : 'dry';
+}
+
+export async function processAgent({ db, chain, config, agent: agentIn, tickId, now, mode: tickMode, stock = STOCKS.NVDAc }) {
+  let agent = agentIn;
   const agentId = String(agent._id);
-  const user = await loadUser(db, agent);
+  let user = await loadUser(db, agent);
+  const mode = agentMode(tickMode, user, config);
+  const liveCap = mode === 'live' ? config.liveMaxRefillUsdc ?? 1_000_000n : undefined;
+  let nowSec = await chain.blockTime(); // fresh per agent (Checkpoint B #2)
   if (!user) return { agentId, result: 'skipped', code: 'paused', reason: 'owner not found' };
   if (user.stoppedAt) return { agentId, result: 'skipped', code: 'paused', reason: 'owner pressed Stop' };
   if (agent.status !== 'active') return { agentId, result: 'skipped', code: 'paused', reason: 'agent paused' };
 
-  const plan = await evaluate({ db, chain, agent, user, stock, nowSec });
+  const plan = await evaluate({ db, chain, agent, user, stock, nowSec, liveCap });
   if (plan.ok && !plan.needed) return { agentId, result: 'not_needed' };
   if (!plan.ok) {
     const d = await recordDecision(db, { agentId, tickId, now, code: plan.code, reason: plan.reason, facts: plan });
@@ -236,8 +251,12 @@ export async function processAgent({ db, chain, config, agent, tickId, now, nowS
   };
 
   try {
-    // Re-check with the lock held, excluding this refill from today's spend.
-    const again = await evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId: refill.refillId });
+    // Re-check with the lock held, with fresh DB records and fresh chain time (Checkpoint B #2, #6).
+    agent = await db.collection('agents').findOne({ _id: agent._id });
+    user = agent ? await loadUser(db, agent) : null;
+    if (!agent || !user || agent.status !== 'active' || user.stoppedAt) return await fail('paused', 'agent or owner changed during the tick');
+    nowSec = await chain.blockTime();
+    const again = await evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId: refill.refillId, liveCap });
     if (!again.ok) return await fail(again.code, again.reason, pick(again));
     if (!again.needed) return await fail('refill_expired', 'balance is back above the floor; no longer needed', {});
     refill = await moveRefill(db, refill, 'checked', {
@@ -260,7 +279,7 @@ export async function processAgent({ db, chain, config, agent, tickId, now, nowS
       stockAmount: again.stockAmount,
       minOut: again.minOut,
       recipient: agent.walletAddress,
-      deadline: nowSec + EXECUTOR.deadlineSec,
+      deadline: (await chain.blockTime()) + EXECUTOR.deadlineSec,
       spender: config.spenderAddress,
     });
 
@@ -279,14 +298,22 @@ export async function processAgent({ db, chain, config, agent, tickId, now, nowS
       return await fail('dry_run', `would sell ${again.stockAmount} ${stock.symbol} units for at least ${again.minOut} USDC units to ${agent.walletAddress}`);
     }
 
-    // Last look at every control right before sending (INV-7).
-    const ctl = await readControls(db, chain, agent, again.permission, nowSec);
+    // Last look at every control right before sending (INV-7), plus the live gate and cap (rollout step 4).
+    const ctl = await readControls(db, chain, agent, again.permission, await chain.blockTime());
     if (ctl.decision !== 'ok') return await fail(ctl.code, ctl.reason);
+    if (agentMode(tickMode, ctl.user, config) !== 'live') return await fail('paused', 'live mode is not enabled for this account');
+    if (again.maxPayoutUsdc > liveCap) return await fail('limit_exceeded', 'over the live rollout cap per refill');
 
     // Mark sent BEFORE broadcasting: a crash after this leaves the agent locked (safe), never a second send.
     refill = await moveRefill(db, refill, 'sent', { at: at(), fields: { sentAt: at() } });
     const { userOpHash } = await chain.sendRefill({ calls, idempotencyKey: refill.refillId });
-    await recordSendHash(db, refill.refillId, userOpHash);
+    try {
+      await recordSendHash(db, refill.refillId, userOpHash);
+    } catch (e) {
+      // Checkpoint B #5: never lose the hash. It is not a secret; log it so the owner can find the op.
+      console.error(`[executor] ALERT refill ${refill.refillId} sent as user op ${userOpHash} but the hash was not saved: ${e?.message}`);
+      return { agentId, refillId: refill.refillId, result: 'sent', alert: true, userOpHash, reason: 'hash not saved; check by hand' };
+    }
     refill = { ...refill, userOpHash };
     const settled = await settleSent(db, chain, { ...refill, agentId }, EXECUTOR.confirmTimeoutSec);
     return { agentId, refillId: refill.refillId, result: settled.state, txHash: settled.txHash ?? null, userOpHash };
@@ -295,7 +322,7 @@ export async function processAgent({ db, chain, config, agent, tickId, now, nowS
     if (['planned', 'checked', 'simulated'].includes(refill.state)) {
       return await fail('simulation_failed', `executor error: ${e?.message ?? e}`);
     }
-    return { agentId, refillId: refill.refillId, result: refill.state, error: e?.code ?? 'internal_error', reason: e?.message };
+    return { agentId, refillId: refill.refillId, result: refill.state, alert: true, error: e?.code ?? 'internal_error', reason: e?.message };
   }
 }
 
@@ -313,6 +340,7 @@ export async function runTick({ db, chain, config, mode = 'dry', now = new Date(
   for (const r of sent) {
     try {
       summary.recovered.settled.push(await settleSent(db, chain, r));
+      if (summary.recovered.settled.at(-1).alert) summary.alert = true;
     } catch (e) {
       summary.recovered.settled.push({ refillId: r.refillId, error: e?.message });
     }
@@ -324,9 +352,13 @@ export async function runTick({ db, chain, config, mode = 'dry', now = new Date(
     return summary;
   }
 
-  let nowSec;
+  // Checkpoint B #7: token decimals read on chain must match config, or nothing is sold this tick.
   try {
-    nowSec = await chain.blockTime();
+    const d = await chain.readDecimals(STOCKS.NVDAc.address);
+    if (d !== STOCKS.NVDAc.decimals) {
+      summary.error = 'decimals_mismatch';
+      return summary;
+    }
   } catch {
     summary.error = 'chain_unavailable';
     return summary;
@@ -334,7 +366,7 @@ export async function runTick({ db, chain, config, mode = 'dry', now = new Date(
   const agents = await db.collection('agents').find({ status: 'active' }).toArray();
   for (const agent of agents) {
     try {
-      summary.agents.push(await processAgent({ db, chain, config, agent, tickId, now, nowSec, mode }));
+      summary.agents.push(await processAgent({ db, chain, config, agent, tickId, now, mode }));
     } catch (e) {
       summary.agents.push({ agentId: String(agent._id), result: 'error', error: e?.code ?? 'internal_error', reason: e?.message });
     }

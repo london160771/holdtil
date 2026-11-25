@@ -22,6 +22,7 @@ function fakeExecutor(base, opts = {}) {
   const ex = {
     s,
     blockTime: async () => s.nowSec,
+    readDecimals: async () => s.decimals ?? 8,
     readUsdcBalance: base.readUsdcBalance,
     readPermissionStatus: base.readPermissionStatus,
     readReference: async () => ({ answer: PRICE, updatedAt: s.nowSec - s.refAgeSec, decimals: 8, roundId: 5n, answeredInRound: 5n }),
@@ -43,8 +44,9 @@ function fakeExecutor(base, opts = {}) {
   return ex;
 }
 
-async function setupUser({ permission = true } = {}) {
+async function setupUser({ permission = true, liveListed = true } = {}) {
   const me = newUser();
+  if (liveListed) liveConfig.liveUsers.push(me.address);
   const a = await signIn(app, me);
   const wallet = newUser().address;
   const res = await a.post('/v1/agents').send({ name: 'Bot', walletAddress: wallet });
@@ -52,7 +54,9 @@ async function setupUser({ permission = true } = {}) {
   return { me, a, agentId: res.body.agent.id, wallet };
 }
 
-const live = (ex, now = new Date()) => runTick({ db: env.db, chain: ex, config: baseConfig, mode: 'live', now });
+// Live tests list every signed-in test user as a live account (rollout allowlist), with the $2 default cap.
+const liveConfig = { ...baseConfig, liveUsers: [], liveMaxRefillUsdc: 2_000_000n };
+const live = (ex, now = new Date(), config = liveConfig) => runTick({ db: env.db, chain: ex, config, mode: 'live', now });
 const dry = (ex, now = new Date()) => runTick({ db: env.db, chain: ex, config: baseConfig, mode: 'dry', now });
 const refillsOf = (agentId) => env.db.collection(REFILLS).find({ agentId }).sort({ createdAt: 1 }).toArray();
 const resultFor = (summary, agentId) => summary.agents.find((x) => x.agentId === agentId);
@@ -236,11 +240,17 @@ describe('failure handling', () => {
     expect((await refillsOf(agentId))[0]).toMatchObject({ state: 'confirmed', usdcOut: '1950000' });
   });
 
-  it('included but no USDC reached the agent → failed tx_failed', async () => {
+  it('included but no USDC seen at the agent → stays locked with an alert', async () => {
     const { agentId } = await setupUser();
     const ex = fakeExecutor(chain);
     ex.checkRefill = async () => ({ status: 'complete', txHash: `0x${'d'.repeat(64)}`, usdcOut: 0n });
-    expect(resultFor(await live(ex), agentId)).toMatchObject({ result: 'failed' });
+    // Stock may have been sold: stay locked and alert, never free the agent or count $0.
+    expect(resultFor(await live(ex), agentId)).toMatchObject({ result: 'sent' });
+    const [r] = await refillsOf(agentId);
+    expect(r).toMatchObject({ state: 'sent', inFlight: true });
+    const sum = await live(ex, new Date(Date.now() + 300_000));
+    expect(sum.alert).toBe(true);
+    expect(ex.s.sends).toHaveLength(1);
   });
 
   it('send throws after marking sent → stays sent with no hash (locked, never resent)', async () => {
@@ -286,7 +296,7 @@ describe('failure handling', () => {
 describe('API: /internal/tick and /v1/refills', () => {
   it('tick needs the secret; runs in the configured mode', async () => {
     const ex = fakeExecutor(chain);
-    const tickApp = createApp({ db: env.db, config: { ...baseConfig, tickSecret: 'test-secret', executorMode: 'dry' }, chain, executorChain: ex });
+    const tickApp = createApp({ db: env.db, config: { ...liveConfig, tickSecret: 'test-secret', executorMode: 'dry' }, chain, executorChain: ex });
     expect((await request(tickApp).post('/internal/tick')).status).toBe(401);
     expect((await request(tickApp).post('/internal/tick').set('x-tick-secret', 'wrong')).status).toBe(401);
     const { agentId } = await setupUser();
@@ -306,5 +316,96 @@ describe('API: /internal/tick and /v1/refills', () => {
     const other = await signIn(app, newUser());
     expect((await other.get('/v1/refills')).body.refills).toHaveLength(0);
     expect((await other.get(`/v1/refills?agentId=${agentId}`)).status).toBe(404);
+  });
+});
+
+describe('Checkpoint B fixes', () => {
+  it('live mode: accounts not on the live list run as a dry run (nothing sent)', async () => {
+    const { agentId } = await setupUser({ liveListed: false });
+    const ex = fakeExecutor(chain);
+    expect(resultFor(await live(ex), agentId)).toMatchObject({ result: 'waited', code: 'dry_run' });
+    expect(ex.s.sends).toHaveLength(0);
+    expect((await refillsOf(agentId))[0].mode).toBe('dry');
+  });
+
+  it('live mode: refill size is held under the live cap', async () => {
+    const { agentId } = await setupUser();
+    const ex = fakeExecutor(chain);
+    await live(ex, new Date(), { ...liveConfig, liveMaxRefillUsdc: 1_000_000n });
+    const [r] = await refillsOf(agentId);
+    expect(r.state).toBe('confirmed');
+    expect(BigInt(r.maxPayoutUsdc)).toBeLessThanOrEqual(1_000_000n);
+  });
+
+  it('decimals on chain differ from config → nothing is sold this tick', async () => {
+    await setupUser();
+    const ex = fakeExecutor(chain, { decimals: 18 });
+    const sum = await live(ex);
+    expect(sum).toMatchObject({ error: 'decimals_mismatch', agents: [] });
+    expect(ex.s.sends).toHaveLength(0);
+  });
+
+  it('user op reverted on chain → failed (nothing sold), agent unlocked', async () => {
+    const { agentId } = await setupUser();
+    const ex = fakeExecutor(chain);
+    ex.checkRefill = async () => ({ status: 'failed', txHash: `0x${'e'.repeat(64)}`, error: 'user operation reverted (nothing sold)' });
+    expect(resultFor(await live(ex), agentId)).toMatchObject({ result: 'failed' });
+    expect((await refillsOf(agentId))[0].inFlight).toBeUndefined();
+  });
+
+  it('our user op missing from the receipt → stays locked with an alert', async () => {
+    const { agentId } = await setupUser();
+    const ex = fakeExecutor(chain);
+    ex.checkRefill = async () => ({ status: 'unknown', txHash: `0x${'f'.repeat(64)}` });
+    expect(resultFor(await live(ex), agentId)).toMatchObject({ result: 'sent' });
+  });
+
+  it('two ticks in different 5-minute windows at once → still one refill (partial unique index)', async () => {
+    const { agentId } = await setupUser();
+    const ex = fakeExecutor(chain);
+    const t = Date.now();
+    await Promise.all([live(ex, new Date(t)), live(ex, new Date(t + 300_000))]);
+    expect(ex.s.sends).toHaveLength(1);
+    expect((await refillsOf(agentId)).filter((r) => r.state === 'confirmed')).toHaveLength(1);
+  });
+
+  it('user daily limit counts every agent of the user', async () => {
+    const { a, agentId } = await setupUser();
+    const second = await a.post('/v1/agents').send({ name: 'Bot2', walletAddress: newUser().address });
+    await env.db.collection(REFILLS).insertOne({ refillId: 'u1', agentId: second.body.agent.id, state: 'confirmed', usdcOut: '9000000', plannedUsdc: '9000000', createdAt: new Date() });
+    const ex = fakeExecutor(chain);
+    const sum = await live(ex);
+    expect(resultFor(sum, agentId)).toMatchObject({ code: 'limit_exceeded', reason: 'over user daily limit' });
+    expect(ex.s.sends).toHaveLength(0);
+  });
+
+  it('permission allowance used up → allowance_exhausted, no tx', async () => {
+    const { agentId } = await setupUser();
+    chain.state.spent = 1_990_000n; // 0.0001 NVDAc left of 0.02
+    const ex = fakeExecutor(chain);
+    expect(resultFor(await live(ex), agentId)).toMatchObject({ code: 'allowance_exhausted' });
+    expect(ex.s.sends).toHaveLength(0);
+  });
+
+  it('hash cannot be saved after send → returned with an alert, agent stays locked', async () => {
+    const { agentId } = await setupUser();
+    const ex = fakeExecutor(chain);
+    ex.sendRefill = async () => ({ userOpHash: 'not-a-hash' });
+    const res = resultFor(await live(ex), agentId);
+    expect(res).toMatchObject({ result: 'sent', alert: true, userOpHash: 'not-a-hash' });
+    expect((await refillsOf(agentId))[0]).toMatchObject({ state: 'sent', inFlight: true });
+  });
+
+  it('the swap deadline uses fresh chain time, not the tick start', async () => {
+    await setupUser();
+    const ex = fakeExecutor(chain);
+    const start = ex.s.nowSec;
+    ex.blockTime = async () => {
+      ex.s.nowSec += 100n; // time moves while the tick runs
+      return ex.s.nowSec;
+    };
+    await live(ex);
+    const swap = decodeFunctionData({ abi: routerAbi, data: ex.s.sends[0].calls.at(-1).data }).args[0];
+    expect(swap.deadline).toBeGreaterThan(start + 300n + 100n);
   });
 });

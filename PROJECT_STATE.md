@@ -9,10 +9,23 @@
 
 ## 1. Right now
 
-- **Active phase:** Phase 3 — Refill executor: built, dry run verified on real Base state.
-- **Status:** Checkpoint B review (fresh eyes) running; then stop for the owner (CLAUDE.md §10 items 1, 3, 4).
-- **Next step:** review fixes → owner funds spender gas + runs a dry run on their own data → owner approves the first real $1 refill.
-- **Blocked by:** Checkpoint B result; then owner steps (guide posted when the review is done).
+- **Active phase:** Phase 3 — Refill executor: built, Checkpoint B done and all findings 1–7 fixed.
+- **Status:** Stopped (CLAUDE.md §10 items 1 and 3): the spender needs gas, and the first real refill needs the owner.
+- **Next step:** owner does P3-STOP below (fund gas → dry run on own data → one real $1 refill).
+- **Blocked by:** P3-STOP.
+
+**P3-STOP — dry run, then the first real $1 refill (owner only)**
+- *What and why:* The executor passed tests, fork simulations and the Checkpoint B review. The last rollout steps (CLAUDE.md §6 steps 2 and 4) need your own data and your approval: Holdtil sells about $1 of your NVDAc through the permission you signed and sends the USDC to your test agent `0xbAbD…7589`.
+- *Steps:*
+  1. **Gas for the spender.** From any Base wallet, send **0.0005 ETH on Base** to Holdtil's spender `0xb7F3c5F916359B303d3ecEbB39f47969444fd15B`. It pays gas only; it never holds user money. Check it on basescan.org (address page shows the ETH).
+  2. In your local repo: `git pull` (branch `claude/project-thread-uqb47q`).
+  3. In `server/.env` add your **dev** CDP keys (same names as in the cloud environment): `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`. Never paste them in chat. Leave `EXECUTOR_MODE` empty.
+  4. Do this on a weekday (the NVDA reference is 24/5; weekends always wait). Run `npm run tick`. It prints `executor mode: dry` and a summary.
+  5. Check the summary: your agent's line should say `"code": "dry_run"` with "would sell … to 0xbAbD…". The agent page in the app shows the same under "Refills and decisions". If it says something else (e.g. `price_stale`, `simulation_failed`), copy that line (no secrets) into the thread and stop here.
+  6. **Only if step 5 shows `dry_run`:** in `server/.env` set `EXECUTOR_MODE=live` and `LIVE_USER_ADDRESSES=0x406bd02d69f1f5d9850c330e7da8252b1a5f4c56`. Run `npm run tick` **once**. This is your approval of the first real refill. The cap is $1 per refill (`LIVE_MAX_REFILL_USDC` default).
+  7. Right after, set `EXECUTOR_MODE=` (empty) again in `server/.env`, so nothing else runs live.
+- *How to check it worked:* the summary shows `"result": "confirmed"` with a `txHash`. The agent page shows a green `confirmed` receipt with a BaseScan link, and the agent's USDC float is about $1. Paste the tx hash in the thread.
+- *What happens next:* Claude verifies the tx on chain, records it (PROJECT_STATE, REAL_VS_MOCKED, PRD §16), and starts Phase 4 (Scout + `/proof`).
 
 ## 2. Phase tracker
 
@@ -21,7 +34,7 @@
 | 0 — Foundation + Gate 0 | Done | 2026-11-24 | `1115b8c` | Gate 0 reviewed by Opus (orchestrator); passed |
 | 1 — Core engine | Done | 2026-11-24 | `91ab9a5` + review fixes (see §10) | A done; 9 findings fixed or carried to Phase 3 |
 | 2 — Accounts, agents, permissions | Done (owner check passed 2026-11-25) | 2026-11-25 | `7628b7b` + fixes `1358c71`, `34547ab` | — |
-| 3 — Refill executor | Built (dry run); Checkpoint B + first real refill pending | 2026-11-25 | see §10 | B |
+| 3 — Refill executor | Built; Checkpoint B done; first real refill pending (P3-STOP) | 2026-11-25 | see §10 | B done |
 | 4 — Holdtil Scout + proof page | Not started | | | — |
 | 5 — Product polish + launch | Not started | | | C |
 | 6 — Video, X post, submission | Not started | | | — |
@@ -31,7 +44,7 @@
 
 | Check | Command | Result | Date |
 |---|---|---|---|
-| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 138 server tests (14 files), client build ok | 2026-11-25 |
+| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 152 server tests (15 files), client build ok | 2026-11-25 |
 | Fork tests | `npm run test:fork` | 18 passed (4 files), incl. executor batch with the real CDP spender: 0.00682772 NVDAc → 1.005479 USDC to agent, min-out 1.000451, gas 413,062 (simulation) | 2026-11-25 |
 | Real dry-run tick | `runTick` dry, in-memory DB, real RPC + CDP spender, throwaway unfunded user | real price (gap 4 bps), planned → checked → waited `simulation_failed` (user had no NVDAc), nothing sent | 2026-11-25 |
 | UI | Playwright screenshots (API mocked for layout only) | agent page with receipts at 1280 and 390: no horizontal scroll | 2026-11-25 |
@@ -104,6 +117,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — P2-STOP fix 2.** Sign-in and Add agent worked for the owner. Signing the permission failed with "salt must be a whole number": the Base Account SDK sends salt as 32-byte hex and defaults `end` to forever. Fix: server accepts decimal or hex numbers; app sets `end` to 365 days (server max 366). 2 new API tests; verify pass (116 tests).
 - **2026-11-25 — Phase 2 owner check passed.** Owner signed in with Base (`0x406b…4c56`), added agent "Test Agent" (`0xbAbD…7589`), signed an NVDAc spend permission of 0.01/day. Dashboard: left today 0.01, status `active`. Data is in the owner's local dev DB; nothing on chain yet (no tx). Phase 3 started.
 - **2026-11-25 — Phase 3 built (dry run).** Files: `server/src/executor/tick.js`, `server/src/chain/{refillBatch,executorChain,spender}.js`, `server/src/config/executor.js`, `server/src/routes/{tick,refills}.js`, `server/scripts/tick.js`, `server/src/{app,index,errors}.js`, `server/src/db/refills.js`, `server/src/config/env.js`, `client/src/components/Receipts.jsx`, `client/src/pages/Agent.jsx`, tests `server/test/executor/tick.test.js` (22), `server/test/fork/executor.fork.test.js` (7). Tests: verify pass (138), fork 18. Tx hashes: none. Env (names): `EXECUTOR_MODE` (optional; unset = dry). Limits: no real refill yet; spender not deployed and has 0 ETH. Next: Checkpoint B, then owner stop.
+- **2026-11-25 — Checkpoint B (fresh-eyes review, separate agent).** No path found that sells at a bad price, over a limit, to the wrong place, twice, while paused or in dry mode. Findings fixed: (1, high) live mode now only for `LIVE_USER_ADDRESSES` with a $1 cap; (2) fresh chain time per agent and for the deadline; (3) CDP idempotency key as UUID v4; (4) settle reads our own user-op success, counts only pool → agent USDC, unclear results stay locked with an alert; (5) hash-save failure logged + alerted; (6) agent/user re-read under the lock; (7) decimals read on chain each tick. Deferred to Checkpoint C: (8) restrict permission signers to Coinbase Smart Wallet / 7702; (9) alert after 3 simulation failures. 14 new tests. verify pass (152), fork 18.
 
 ## 11. Manual tasks (owner)
 
