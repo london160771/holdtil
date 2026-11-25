@@ -10,6 +10,7 @@ import { STOCKS } from '../config/addresses.js';
 import { quoteSell } from './quote.js';
 import { readPermissionStatus } from './spendPermission.js';
 import { loadSpender } from './spender.js';
+import { withSuffix } from './builderCode.js';
 
 const transferAbi = parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)']);
 const userOpEventAbi = parseAbi([
@@ -46,7 +47,7 @@ const ANYONE = '0x000000000000000000000000000000000000dEaD';
  * Simulates the spender's executeBatch on real Base state. Deploys the spender in the simulation if it
  * has no code yet (CDP deploys it on the first real user operation). Returns the USDC the agent gains.
  */
-export async function simulateSpenderBatch(client, { spender, calls, agentWallet, preBlocks = [], overrides = {} }) {
+export async function simulateSpenderBatch(client, { spender, calls, agentWallet, dataSuffix, preBlocks = [], overrides = {} }) {
   // preBlocks / overrides: test-only setup (e.g. funding a throwaway user wallet). Empty in production.
   const code = await client.getCode({ address: spender.address });
   const deployed = Boolean(code && code !== '0x');
@@ -54,7 +55,8 @@ export async function simulateSpenderBatch(client, { spender, calls, agentWallet
   const batch = {
     from: spender.ownerAddress,
     to: spender.address,
-    data: encodeFunctionData({ abi: smartWalletAbi, functionName: 'executeBatch', args: [calls.map((c) => ({ target: c.to, value: c.value, data: c.data }))] }),
+    // Same calldata the user op will carry, builder-code suffix included, so the simulation matches the send.
+    data: withSuffix(encodeFunctionData({ abi: smartWalletAbi, functionName: 'executeBatch', args: [calls.map((c) => ({ target: c.to, value: c.value, data: c.data }))] }), dataSuffix),
   };
   const setup = deployed ? [] : [{ from: ANYONE, to: ADDRESSES.SMART_WALLET_FACTORY, data: encodeFunctionData({ abi: factoryAbi, functionName: 'createAccount', args: [spender.ownersBytes, 0n] }) }];
   const r = await client.request({
@@ -71,7 +73,7 @@ export async function simulateSpenderBatch(client, { spender, calls, agentWallet
   return { ok: true, usdcOut: after - before, gasUsed: BigInt(b.gasUsed) };
 }
 
-export function executorChain(client, { spenderAddress }) {
+export function executorChain(client, { spenderAddress, dataSuffix, loadSpenderFn = loadSpender }) {
   return {
     blockTime: async () => (await client.getBlock()).timestamp,
     readUsdcBalance: (addr) => readBalance(client, ADDRESSES.USDC, addr),
@@ -80,14 +82,16 @@ export function executorChain(client, { spenderAddress }) {
     quoteSell: (stock, amount) => quoteSell(client, stock, amount),
     readPermissionStatus: (p, nowSec) => readPermissionStatus(client, p, nowSec),
     isApproved: (p) => client.readContract({ address: ADDRESSES.SPEND_PERMISSION_MANAGER, abi: spendPermissionManagerAbi, functionName: 'isApproved', args: [p] }),
-    simulateRefill: async ({ calls, agentWallet }) => simulateSpenderBatch(client, { spender: await loadSpender(spenderAddress), calls, agentWallet }),
+    simulateRefill: async ({ calls, agentWallet }) => simulateSpenderBatch(client, { spender: await loadSpenderFn(spenderAddress), calls, agentWallet, dataSuffix }),
     sendRefill: async ({ calls, idempotencyKey }) => {
-      const s = await loadSpender(spenderAddress);
-      const res = await s.cdp.evm.sendUserOperation({ smartAccount: s.smartAccount, network: 'base', calls, idempotencyKey: idempotencyUuid(idempotencyKey) });
+      const s = await loadSpenderFn(spenderAddress);
+      const op = { smartAccount: s.smartAccount, network: 'base', calls, idempotencyKey: idempotencyUuid(idempotencyKey) };
+      if (dataSuffix) op.dataSuffix = dataSuffix; // Base Builder Code (ERC-8021), attribution only
+      const res = await s.cdp.evm.sendUserOperation(op);
       return { userOpHash: res.userOpHash };
     },
     checkRefill: async ({ userOpHash, agentWallet, timeoutSec }) => {
-      const s = await loadSpender(spenderAddress);
+      const s = await loadSpenderFn(spenderAddress);
       let res;
       try {
         res = await s.cdp.evm.waitForUserOperation({ smartAccountAddress: s.address, userOpHash, waitOptions: { timeoutSeconds: timeoutSec, intervalSeconds: 1 } });

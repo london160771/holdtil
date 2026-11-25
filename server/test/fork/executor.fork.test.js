@@ -10,6 +10,7 @@ import { getPublicClient } from '../../src/chain/client.js';
 import { erc20Abi, factoryAbi, smartWalletAbi, spendPermissionManagerAbi } from '../../src/chain/abis.js';
 import { buildRefillCalls } from '../../src/chain/refillBatch.js';
 import { simulateSpenderBatch } from '../../src/chain/executorChain.js';
+import { builderCodeSuffix } from '../../src/chain/builderCode.js';
 import { loadSpender } from '../../src/chain/spender.js';
 import { readReference } from '../../src/chain/priceFeed.js';
 import { quoteSell } from '../../src/chain/quote.js';
@@ -88,6 +89,14 @@ describe('executor batch on Base mainnet state (eth_simulateV1, nothing sent)', 
     expect(r.ok).toBe(true);
     expect(r.usdcOut).toBeGreaterThanOrEqual(ctx.minOut);
     console.log('[fork] sold', ctx.stockAmount, 'NVDAc units → agent USDC', r.usdcOut, 'min-out', ctx.minOut, 'gas', r.gasUsed);
+  });
+
+  it('builder-code suffix (ERC-8021) on the batch calldata changes nothing: same USDC to the agent', async () => {
+    const plain = await simulateSpenderBatch(client, { spender, calls: calls(), agentWallet: ctx.agentWallet, preBlocks: [ctx.fund], overrides: ctx.restore });
+    const tagged = await simulateSpenderBatch(client, { spender, calls: calls(), agentWallet: ctx.agentWallet, preBlocks: [ctx.fund], overrides: ctx.restore, dataSuffix: builderCodeSuffix('bc_b7k3p9da') });
+    expect(tagged.ok).toBe(true);
+    expect(tagged.usdcOut).toBe(plain.usdcOut);
+    console.log('[fork] builder code: gas', plain.gasUsed, '→', tagged.gasUsed);
   });
 
   it('min-out uses the reference floor: never below reference − maxGapBps', () => {

@@ -7,6 +7,7 @@ Stated plainly. The UI banner always shows **`REAL · BASE MAINNET`**. There is 
 | Sign in with Base | Real code, Base mainnet; tested with throwaway keys and smart-wallet signatures; and with the owner's real Base Account (2026-11-25) | API + fork tests; owner check |
 | Spend Permissions | Signing + live status read from chain built; signed by the owner's real Base Account (2026-11-25). Nothing is spent until Phase 3 | API + fork tests; owner check |
 | Refills (stock → USDC → agent wallet) | Real, Base mainnet. Live for the owner's account only ($1 cap, rollout step 4); everyone else dry run | [first refill](https://basescan.org/tx/0x576245f2149007aeafc3fdc32efd2982d6fd24ae1cca4e4e72b470d75aa58655) |
+| Base Builder Code on refills | Real code path, tested (unit + fork simulation). Off until the owner sets `BUILDER_CODE`; first tagged refill pending owner approval | tests; base.dev check after the first tagged refill |
 | Receipts and decisions | Real, from DB (`/v1/refills`, agent page) | API tests |
 | Holdtil Scout x402 payments | Real, Base mainnet. Scout pays x402stock.xyz $0.03 per call from its own wallet. First payment funded by a manual 0.1 USDC transfer; Holdtil refills of Scout start 2026-11-26. Runs on the owner's PC until deploy | [first payment](https://basescan.org/tx/0x57a8130e63de6c5ddd17daa51af113819cc8a2524f9455d4a8e912ef660cf3db) |
 | Fork tests | Simulations on real Base mainnet state (`eth_simulateV1`), throwaway wallets, nothing broadcast | test output; never shown as product data |

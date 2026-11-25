@@ -1,4 +1,5 @@
 // Reads env vars. Never logs or returns secret values (CLAUDE.md §6).
+import { builderCodeSuffix } from '../chain/builderCode.js';
 
 const REQUIRED_FOR_SERVER = ['BASE_RPC_URL', 'MONGODB_URI', 'SESSION_SECRET', 'TICK_SECRET', 'APP_ORIGIN', 'SPENDER_ADDRESS'];
 
@@ -33,5 +34,9 @@ export function loadConfig(env = process.env) {
     liveUsers: (env.LIVE_USER_ADDRESSES || '').split(',').map((a) => a.trim()).filter((a) => /^0x[0-9a-fA-F]{40}$/.test(a)),
     // Hard cap per real refill while rolling out (USDC base units). Default $1.
     liveMaxRefillUsdc: /^\d+$/.test(env.LIVE_MAX_REFILL_USDC || '') ? BigInt(env.LIVE_MAX_REFILL_USDC) : 1_000_000n,
+    // Base Builder Code (public, from Base Dashboard). Tags refill user ops for attribution (ERC-8021). Empty = no tag.
+    // A malformed code stops the server at start instead of being silently dropped.
+    builderCode: (env.BUILDER_CODE || '').trim(),
+    dataSuffix: builderCodeSuffix(env.BUILDER_CODE),
   };
 }

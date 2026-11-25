@@ -16,7 +16,7 @@ const { client: mongo, db } = await connectDb(config.mongoUri, 'holdtil');
 try {
   await ensureIndexes(db);
   console.log(`executor mode: ${config.executorMode}`);
-  const summary = await runTick({ db, chain: executorChain(getPublicClient(config.rpcUrl), { spenderAddress: config.spenderAddress }), config, mode: config.executorMode });
+  const summary = await runTick({ db, chain: executorChain(getPublicClient(config.rpcUrl), { spenderAddress: config.spenderAddress, dataSuffix: config.dataSuffix }), config, mode: config.executorMode });
   console.log(JSON.stringify(summary, (_k, v) => (typeof v === 'bigint' ? v.toString() : v), 2));
 } finally {
   await mongo.close();
