@@ -9,23 +9,10 @@
 
 ## 1. Right now
 
-- **Active phase:** Phase 3 — Refill executor: built, Checkpoint B done and all findings 1–7 fixed.
-- **Status:** Stopped (CLAUDE.md §10 items 1 and 3): the spender needs gas, and the first real refill needs the owner.
-- **Next step:** owner does P3-STOP below (fund gas → dry run on own data → one real $1 refill).
-- **Blocked by:** P3-STOP.
-
-**P3-STOP — dry run, then the first real $1 refill (owner only)**
-- *What and why:* The executor passed tests, fork simulations and the Checkpoint B review. The last rollout steps (CLAUDE.md §6 steps 2 and 4) need your own data and your approval: Holdtil sells about $1 of your NVDAc through the permission you signed and sends the USDC to your test agent `0xbAbD…7589`.
-- *Steps:*
-  1. ✅ done 2026-11-25 (0.0005 ETH confirmed on chain). **Gas for the spender.** From any Base wallet, send **0.0005 ETH on Base** to Holdtil's spender `0xb7F3c5F916359B303d3ecEbB39f47969444fd15B`. It pays gas only; it never holds user money. Check it on basescan.org (address page shows the ETH).
-  2. In your local repo: `git pull` (branch `claude/project-thread-uqb47q`).
-  3. In `server/.env` add your **dev** CDP keys (same names as in the cloud environment): `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`. Never paste them in chat. Leave `EXECUTOR_MODE` empty.
-  4. Do this on a weekday (the NVDA reference is 24/5; weekends always wait). Run `npm run tick`. It prints `executor mode: dry` and a summary.
-  5. Check the summary: your agent's line should say `"code": "dry_run"` with "would sell … to 0xbAbD…". The agent page in the app shows the same under "Refills and decisions". If it says something else (e.g. `price_stale`, `simulation_failed`), copy that line (no secrets) into the thread and stop here.
-  6. **Only if step 5 shows `dry_run`:** in `server/.env` set `EXECUTOR_MODE=live` and `LIVE_USER_ADDRESSES=0x406bd02d69f1f5d9850c330e7da8252b1a5f4c56`. Run `npm run tick` **once**. This is your approval of the first real refill. The cap is $1 per refill (`LIVE_MAX_REFILL_USDC` default).
-  7. Right after, set `EXECUTOR_MODE=` (empty) again in `server/.env`, so nothing else runs live.
-- *How to check it worked:* the summary shows `"result": "confirmed"` with a `txHash`. The agent page shows a green `confirmed` receipt with a BaseScan link, and the agent's USDC float is about $1. Paste the tx hash in the thread.
-- *What happens next:* Claude verifies the tx on chain, records it (PROJECT_STATE, REAL_VS_MOCKED, PRD §16), and starts Phase 4 (Scout + `/proof`).
+- **Active phase:** Phase 4 — Holdtil Scout + proof page (started 2026-11-25).
+- **Status:** Building. Phase 3 done: first real refill confirmed on Base mainnet (see §6).
+- **Next step:** Scout x402 client + `/proof` page.
+- **Blocked by:** nothing yet. Known upcoming stop: Scout wallet key + funding, and the owner approves Scout's first real x402 payment.
 
 ## 2. Phase tracker
 
@@ -34,8 +21,8 @@
 | 0 — Foundation + Gate 0 | Done | 2026-11-24 | `1115b8c` | Gate 0 reviewed by Opus (orchestrator); passed |
 | 1 — Core engine | Done | 2026-11-24 | `91ab9a5` + review fixes (see §10) | A done; 9 findings fixed or carried to Phase 3 |
 | 2 — Accounts, agents, permissions | Done (owner check passed 2026-11-25) | 2026-11-25 | `7628b7b` + fixes `1358c71`, `34547ab` | — |
-| 3 — Refill executor | Built; Checkpoint B done; first real refill pending (P3-STOP) | 2026-11-25 | see §10 | B done |
-| 4 — Holdtil Scout + proof page | Not started | | | — |
+| 3 — Refill executor | Done (first real refill confirmed) | 2026-11-25 | `27db5e8` + fixes to `7854cd1` | B done |
+| 4 — Holdtil Scout + proof page | In progress | | | — |
 | 5 — Product polish + launch | Not started | | | C |
 | 6 — Video, X post, submission | Not started | | | — |
 | 7 — P1 extras | Not started | | | — |
@@ -49,7 +36,7 @@
 | Real dry-run tick | `runTick` dry, in-memory DB, real RPC + CDP spender, throwaway unfunded user | real price (gap 4 bps), planned → checked → waited `simulation_failed` (user had no NVDAc), nothing sent | 2026-11-25 |
 | UI | Playwright screenshots (API mocked for layout only) | agent page with receipts at 1280 and 390: no horizontal scroll | 2026-11-25 |
 | Real wallet | owner sign-in + spend permission | pass (P2-STOP), signing only | 2026-11-25 |
-| Real refill | — | **not sent yet** (needs owner approval) | — |
+| Real refill | owner ran `npm run tick` live (owner's account only, $1 cap) | confirmed: tx `0x576245f2149007aeafc3fdc32efd2982d6fd24ae1cca4e4e72b470d75aa58655`, 0.00665098 NVDAc → 0.988785 USDC to agent (min-out 0.983841), gas 0.0000074 ETH incl. spender deploy | 2026-11-25 |
 
 ## 4. What works (verified)
 
@@ -70,13 +57,13 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 
 ## 6. Live proof
 
-| Item | Value |
-|---|---|
-| Live URL | none yet (holdtil.xyz planned) |
-| Proof page | none yet |
-| Network | Base mainnet (planned) |
-| Contracts / addresses | none deployed |
-| Real transactions | none yet (Gate 0 sent nothing) |
+| What | Value | Checked |
+|---|---|---|
+| First real refill (Base mainnet) | [`0x576245f2…`](https://basescan.org/tx/0x576245f2149007aeafc3fdc32efd2982d6fd24ae1cca4e4e72b470d75aa58655) · block 62076859 · 2026-11-25 11:22:27 UTC | on chain by Claude 2026-11-25 |
+| Sold | 0.00665098 NVDAc from owner Base Account `0x406b…4c56` via Spend Permission (`approveWithSignature` + `spend` in the same batch) | Transfer logs |
+| Paid | 0.988785 USDC from the Aerodrome pool to agent `0xbAbD…7589` (min-out 0.983841, deadline set) | Transfer logs + decoded user op |
+| Gas | 0.00000739 ETH from the spender (incl. first-time smart account deploy); no paymaster | spender balance 0.0005 → 0.00049261 ETH |
+| Spender after | holds 0 NVDAc, 0 USDC (never user money) | balances read on chain |
 
 ## 7. Demo recordings (PRD §22)
 
@@ -121,6 +108,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Owner dry run #1:** blocked `allowance_exhausted`. Cause: dry runs didn't apply the $1 rollout cap, so it planned ~$1.97 = 0.0134 NVDAc, over the 0.01/day permission. Fix: rollout cap applies in dry too; refill shrinks to fit the allowance left. Spender gas confirmed: 0.0005 ETH at `0xb7F3…d15B`. 2 regression tests; verify pass (154).
 - **2026-11-25 — Owner live tick #1:** `skipped refill_in_flight`, nothing sent (checked on chain: spender still 0.0005 ETH and undeployed, owner NVDAc 0.02065741 unchanged, agent USDC 0). Cause: the dry run and the live run were in the same 5-minute window and shared the refill id. Fix: id includes the mode; clearer skip reason. 2 regression tests; verify pass (156).
 - **2026-11-25 — Owner live tick #2:** `waited price_stale` "reference time is in the future", nothing sent (checked on chain). Cause: block time read before the feed; the RPC served the feed from a newer block. Fix: up to 30 s of future skew counts as fresh. 3 tests; verify pass (159).
+- **2026-11-25 — Phase 3 done. First real refill confirmed** (owner-approved, rollout step 4): tx `0x576245f2149007aeafc3fdc32efd2982d6fd24ae1cca4e4e72b470d75aa58655`. Verified on chain: user op success; 0.00665098 NVDAc pulled from `0x406b…4c56`; 0.988785 USDC to agent `0xbAbD…7589` ≥ min-out 0.983841; swap recipient = DB agent wallet; spender deployed in the same op, left with 0 NVDAc / 0 USDC; gas 0.00000739 ETH. Acceptance (PRD §27): lab #1–7 tests pass + one real refill with receipt. Next: Phase 4.
 
 ## 11. Manual tasks (owner)
 
