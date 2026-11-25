@@ -1,0 +1,37 @@
+{
+  "name": "holdtil",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Your agent's money stays invested until it pays.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "server",
+    "client",
+    "scout"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client \"npm run dev -w server\" \"npm run dev -w client\"",
+    "test": "npm test -w server && npm test -w scout",
+    "test:fork": "npm run test:fork -w server",
+    "lint": "eslint . --max-warnings 0",
+    "build": "npm run build -w client",
+    "verify": "npm run lint && npm test && npm run build",
+    "gate0": "npm run gate0 -w server",
+    "read-only": "npm run read-only -w server --",
+    "tick": "npm run tick -w server",
+    "scout": "npm run scout -w scout",
+    "scout:new-key": "npm run new-key -w scout",
+    "spender": "npm run spender -w server --",
+    "spender:prod": "npm run spender:prod -w server --",
+    "scout:sweep": "npm run sweep -w scout --"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.7",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0"
+  }
+}

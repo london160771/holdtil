@@ -1,0 +1,25 @@
+{
+  "name": "@holdtil/scout",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Holdtil Scout: our own agent that pays x402stock.xyz over x402 (PRD FR-SCT-001).",
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "x402:dry": "node scripts/x402-dry-check.js",
+    "scout": "node --env-file-if-exists=.env src/main.js",
+    "scout:loop": "node --env-file-if-exists=.env src/main.js --loop",
+    "new-key": "node scripts/new-key.js",
+    "sweep": "node --env-file-if-exists=.env scripts/sweep.js"
+  },
+  "dependencies": {
+    "@x402/evm": "^2.32.0",
+    "@x402/fetch": "^2.32.0",
+    "mongodb": "^7.9.1",
+    "viem": "^2.58.6"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.4.0",
+    "vitest": "^5.1.1"
+  }
+}

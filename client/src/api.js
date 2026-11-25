@@ -1,0 +1,28 @@
+// Calls the Holdtil API on the same origin (/v1/...). Errors come back as { code, message, nextAction }.
+const SERVER_DOWN = 'Cannot reach the Holdtil server right now. It may be waking up; try again in a moment.';
+
+export class ApiError extends Error {
+  constructor(status, body) {
+    super(body?.error?.message || (status >= 502 && status <= 504 ? SERVER_DOWN : `Request failed (${status})`));
+    this.status = status;
+    this.code = body?.error?.code || 'internal_error';
+    this.nextAction = body?.error?.nextAction || null;
+  }
+}
+
+export async function api(path, { method = 'GET', body } = {}) {
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      credentials: 'same-origin',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError(503, null); // network error: no response at all
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data;
+}

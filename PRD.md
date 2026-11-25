@@ -166,12 +166,12 @@ Invariant form: every confirmed refill has `gapBps ≤ maxGapBps`, `priceAge ≤
 - **INV-1 (money):** All amounts are integers in token base units (`bigint` in code, string in MongoDB). No floats in money math. USD values for display only.
 - **INV-2 (fair price):** A refill is sent only if the Chainlink reference is fresh (`age ≤ maxPriceAgeSec`) and `|quote − reference| / reference ≤ maxGapBps`.
 - **INV-3 (limits):** `refillUsd ≤ maxPerRefill`, `agentSpentToday + refillUsd ≤ agentDailyLimit`, `userSpentToday + refillUsd ≤ userDailyLimit`, and on-chain allowance remaining ≥ amount. All checked before simulation.
-- **INV-4 (single flight):** At most one refill per agent in `planned|simulated|sent` state. Enforced by a unique index, not by reading first.
+- **INV-4 (single flight):** At most one refill per agent in `planned|checked|simulated|sent` state. Enforced by a unique index, not by reading first.
 - **INV-5 (destination):** USDC from a refill can only go to the agent wallet registered by that user. The executor never accepts a destination from outside the DB record.
 - **INV-6 (allowlists):** Only tokens, routers, feeds and the Spend Permission Manager listed in `server/src/config/addresses.js` (with source links) are ever called.
 - **INV-7 (control):** If global pause, user stop, agent pause, or revoked permission is set, no tx is sent.
 
-**Refill state machine:** `planned → checked → simulated → sent → {confirmed | failed}`, and `planned|checked → {waited | blocked}`. Illegal transitions throw. Every transition is logged with a timestamp.
+**Refill state machine:** `planned → checked → simulated → sent → {confirmed | failed}`, and `planned|checked|simulated → {waited | blocked}`. Illegal transitions throw. Every transition is logged with a timestamp. In-flight states (INV-4): `planned`, `checked`, `simulated`, `sent`.
 
 **Error / decision codes** (each with `retryable` and `nextAction`):
 
@@ -187,6 +187,7 @@ Invariant form: every confirmed refill has `gapBps ≤ maxGapBps`, `priceAge ≤
 | `tx_failed` | Tx reverted or not confirmed | yes | Investigate; alert |
 | `refill_in_flight` | Another refill active | yes | Skip this tick |
 | `auth_failed` | Bad signature / nonce | no | Sign in again |
+| `refill_expired` | Refill stuck in flight (before send) past the timeout | yes | Next tick tries again |
 
 ---
 
@@ -229,7 +230,7 @@ Holdtil Scout (separate Node process) ── x402 ──► x402stock.xyz   (its
 - `users` — `address` (unique, lowercase), `notUsConfirmedAt`, `termsAcceptedAt`, `stoppedAt`, `dailyLimitUsd`, `createdAt`
 - `agents` — `userId`, `name`, `walletAddress`, `floorUsdc` (base units), `targetUsdc`, `maxPerRefillUsdc`, `dailyLimitUsdc`, `status` (`active|paused`), unique (`userId`,`walletAddress`)
 - `permissions` — `userId`, `token`, `allowance`, `periodSec`, `start`, `end`, `permissionHash` (unique), `signature`, `status`
-- `refills` — `refillId` (unique), `agentId`, `state`, `code`, `stockAmount`, `usdcOut`, `minOut`, `refPrice`, `refPriceAt`, `quotePrice`, `gapBps`, `txHash`, timestamps; partial unique index on `agentId` where `state ∈ {planned, simulated, sent}` (INV-4)
+- `refills` — `refillId` (unique), `agentId`, `state`, `code`, `stockAmount`, `usdcOut`, `minOut`, `refPrice`, `refPriceAt`, `quotePrice`, `gapBps`, `txHash`, timestamps; partial unique index on `agentId` where `inFlight: true`, set while `state ∈ {planned, checked, simulated, sent}` (INV-4)
 - `nonces` — `nonce` (unique), `address`, `expiresAt` (TTL)
 - `settings` — `globalPause`
 - `scoutRuns` — `runId`, `x402TxHash`, `costUsdc`, `summary`, `createdAt`
@@ -265,13 +266,14 @@ No extra MVP endpoints beyond this table.
 | Base tool | Job it does in the core path | File(s) |
 |---|---|---|
 | Coinbase tokenized stocks (B20, e.g. NVDAc) | The treasury asset that gets sold for refills | `server/src/config/addresses.js` |
-| Base Account + Sign in with Base | Login and permission signing | `client/src/auth/*` |
-| Spend Permissions | Hard user limits + revoke | `server/src/chain/spendPermission.js` |
+| Base Account + Sign in with Base | Login and permission signing | `client/src/wallet.js`, `server/src/routes/auth.js` |
+| Spend Permissions | Hard user limits + revoke | `server/src/chain/spendPermission.js`, `server/src/chain/refillBatch.js` |
 | Chainlink tokenized equity feeds on Base | Reference price for the fair-price guard | `server/src/chain/priceFeed.js` |
-| Aerodrome (or aggregator, per Gate 0) | Stock → USDC swap with min-out | `server/src/chain/swap.js` |
+| Aerodrome Slipstream (per Gate 0) | Stock → USDC swap with min-out | `server/src/chain/quote.js`, `server/src/chain/refillBatch.js` |
+| CDP smart account (spender) | Sends the refill batch as one ERC-4337 user op; holds gas only | `server/src/chain/spender.js`, `server/src/chain/executorChain.js` |
 | x402 | How agents pay; Scout pays x402stock | `scout/*` |
 
-- **Evaluated and rejected:** [fill after Gate 0]
+- **Evaluated and rejected:** Anvil fork for B20 flows (can't run B20 precompiles); 0x / aggregator API (not needed: direct Aerodrome pool is deep enough for small refills, and one fewer API key); the Chainlink 24/7 NVDA feed (we want the 24/5 reference so weekends read as stale and we wait).
 - **Upstream contribution:** none planned.
 
 ---
@@ -289,7 +291,22 @@ No extra MVP endpoints beyond this table.
 - **Option A (ideal):** CDP Server Wallet smart account as spender; batch calls; Aerodrome router direct.
 - **Option B (fallback):** Small audited-pattern executor contract owned by the spender that does pull + swap + send in one call; or an aggregator API (0x / 1inch) for the swap.
 - **Acceptance:** all 6 pass with raw evidence (fork logs, tx hashes).
-- **Result:** [PENDING]
+- **Result (2026-11-24): Option A chosen. Premises 1–6 pass** in simulation / read / dry run. Raw report: `docs/gate0/2026-11-24-gate0-report.json` (re-run: `npm run gate0`). The "one tiny real tx with owner approval" is moved to the owner-approved stops already planned: permission signing (Phase 2) and the $1 refill (Phase 3), because a real tx needs the owner's Base Account and the CDP spender.
+
+| # | Premise | Result | Evidence (Base mainnet, 2026-11-24) |
+|---|---|---|---|
+| 1 | Spend Permission on NVDAc spent by our spender | Pass (simulated) | `approveWithSignature` + `spend` on NVDAc succeeded inside the batch (block 61760759). Revoked, over-allowance and wrong-spender all reverted. |
+| 2 | Pull → swap (min-out) → USDC to agent in one atomic batch | Pass (simulated) | Smart-wallet `executeBatch`: user 0.05→0.04 NVDAc, agent got 1.530096 USDC (min-out 1.522445), spender kept 0. Min-out above quote → `Too little received`, whole batch reverted, user kept all NVDAc. |
+| 3 | Fresh Chainlink NVDA reference with timestamp | Pass (real read) | Feed `0x0468…8513` "Coinbase NVDA", 8 dec, answer 153.54255219, updatedAt 17:29:23Z, age 1164 s at block 61760758. Same feed as Coinbase API `/nav-feeds`. |
+| 4 | Executable DEX quote for a small sale | Pass (real quote + simulated swap) | Aerodrome Slipstream pool `0x853F…7ab9` (tick spacing 10, 0.05% fee, ~1,780 NVDAc / ~18,740 USDC): 0.01 NVDAc → 1.530096 USDC, gap 34 bps vs reference. |
+| 5 | x402 client can pay x402stock.xyz from a plain wallet | Pass (dry) | 402 asks x402 v2 `exact`, `eip155:8453`, USDC, 30000 ($0.03). A real signed payment from an empty throwaway wallet was refused only with `insufficient_funds`. No money moved. |
+| 6 | Owner can hold NVDAc from Nigeria | Pass (manual) | Owner bought ~$1 NVDAc on Aerodrome. |
+
+**Gate 0 findings that change how we build (evidence above):**
+- **Anvil cannot run B20 tokens.** B20 stocks are Base-native precompiles (code `0xef`). On an Anvil fork every NVDAc call fails with `EVM error OpcodeNotFound` (anvil 1.5.1-stable). Chainlink and Aerodrome reads work on Anvil. So "fork tests" for anything that touches a B20 token run as `eth_simulateV1` on a real Base node (state overrides, nothing broadcast). `npm run test:fork` does this.
+- **The reference feed is per token.** Coinbase feeds report total-return value (underlying price × multiplier), so the feed answer compares directly with the DEX price per NVDAc. No extra multiplier math in the price guard; still read balances fresh (CLAUDE.md §9).
+- **Swap venue:** Aerodrome Slipstream "Gauges V3" deployment (router + quoter in `addresses.js`). The deep NVDAc/USDC pool lives there. Other NVDAc pools (v2, tick spacings 1 and 200) hold only dust.
+- **CDP spender:** CDP smart accounts are Coinbase Smart Wallet v1.1 (same factory as Base Accounts). Creating the dev spender is blocked by a CDP setup step (see PROJECT_STATE §1).
 
 **Resolved decisions — do not re-litigate:**
 
@@ -304,7 +321,48 @@ No extra MVP endpoints beyond this table.
 | 2026-11-24 | Stack: React + Bootstrap, Node/Express, MongoDB Atlas, viem | Owner stack; no Tailwind |
 | 2026-11-24 | Owner deploys; agents never deploy | Owner rule |
 | 2026-11-24 | Gate 0 #6 passed: owner holds NVDAc from Nigeria | Bought ~$1 NVDAc via Aerodrome |
+| 2026-11-24 | Gate 0 passed; Option A (CDP smart account spender, batch calls, Aerodrome router direct) | See Gate 0 result above |
+| 2026-11-24 | B20 flows are tested with `eth_simulateV1` on Base mainnet state, not Anvil | Anvil fork: NVDAc `decimals()` → `EVM error OpcodeNotFound`; Base node runs it fine |
+| 2026-11-24 | Reference price = Chainlink "Coinbase NVDA" 24/5 feed `0x04689a41629776563E6822F76f2e57D148d28513` | Listed for NVDAc by Coinbase API `/v1/tokenized-stocks/nav-feeds` and Chainlink directory |
+| 2026-11-24 | Swap venue = Aerodrome Slipstream Gauges V3 pool `0x853F5f1B92b16714Fe6CDA67CAad0856B83C7ab9` | Only NVDAc pool with real liquidity (checked on chain via official factories) |
+| 2026-11-24 | Base Account SDK docs moved to CDP ("Coinbase Wallet SDK"); package is still `@base-org/account` | docs.base.org/sdks/migrated-products |
+| 2026-11-24 | INV-4 covers every in-flight state: `planned`, `checked`, `simulated`, `sent` (§11 listed only three; `checked` is in flight too). Enforced by a partial unique index on `agentId` where `inFlight: true` | A refill in `checked` must also block a second refill; flag field is simpler than `$in` in a partial index |
+| 2026-11-24 | Refill size = `min(target − balance, maxPerRefill)` | Keeps INV-3 true instead of blocking forever when the gap is bigger than the per-refill max |
+| 2026-11-24 | Swap min-out = max(quote − slippage, reference value − `maxGapBps`) | Puts the fair-price rule on chain too: if the pool moves after the quote, the swap reverts instead of filling unfairly |
+| 2026-11-24 | Spend-today counts confirmed refills (actual USDC out) + in-flight refills (planned USDC); days roll over at 00:00 UTC | Fail closed: in-flight money counts against the limit |
+| 2026-11-24 | Decision state: retryable codes → `waited`, others → `blocked` (so `simulation_failed` → `waited`) | Matches the retryable column in §11 |
+| 2026-11-24 | Checkpoint A fixes: `simulated → waited/blocked` allowed (pause, revoke or crash between simulate and send); stale `planned/checked/simulated` refills expire to `waited` (`refill_expired`) after 15 min; stale `sent` refills are only reported and must be checked on chain (Phase 3) | Fresh-eyes review: otherwise a crash locks an agent forever |
+| 2026-11-24 | Limits (INV-3) are checked against the most a sale can pay out: max(quote, reference value + `maxGapBps`), not the planned USDC | Review: buffer or a good quote could push a day past its limit. A fill above that bound needs the pool to jump past the fair band in the same block |
+| 2026-11-24 | Price guard refuses mismatched price units and incomplete Chainlink rounds (`price_stale`) | Review finding; fail closed |
+| 2026-11-24 | Phase 3 must: write the tx hash before broadcast; check stuck `sent` refills on chain; add the wrong-destination fork test (lab #7); show the reference floor in the executor simulation (Gate 0 sim used quote − 50 bps only) | Review findings carried forward |
 
+| 2026-11-24 | Agent limits: defaults floor $1, target $3, max per refill $2, daily $5 per agent, $10 per user. Hard caps: target $50, per refill $25, daily $50 per agent, $100 per user (`server/src/config/limits.js`) | Small safe defaults for rollout step 4–5 (CLAUDE.md §6) |
+| 2026-11-24 | Spend permissions accepted only if: account = signed-in user, spender = Holdtil spender, token on the allowlist, allowance > 0, period 1 h–31 d, lifetime ≤ 366 d, and the signature verifies on chain (ERC-1271/6492) | INV-6 and fail closed |
+| 2026-11-24 | Sessions: random token in an httpOnly `SameSite=Lax` cookie; only its sha256 is stored (7-day TTL). Production must serve `/v1` on the same origin as the app (Vercel rewrite to Render) | Lax cookies don't cross sites; avoids CORS + third-party cookie problems |
+| 2026-11-25 | Sign in with Base: the app builds the SIWE message itself (chain 8453), switches the Base Account provider to Base first, and signs with `personal_sign`. We don't use the `wallet_connect` SIWE capability | Owner's first real try (2026-11-25) got a message for a non-Base chain → "Wrong network" |
+| 2026-11-24 | Sign in with Base: nonce is one use (atomic delete), SIWE checks domain, URI = `APP_ORIGIN`, chain 8453. Verify with viem (ERC-1271/6492); if that fails and the address has EIP-7702 code (`0xef0100…`), accept plain ECDSA recovery equal to the address | Owner's smart wallet is a 7702 account (M10); its owner key is the address itself |
+| 2026-11-24 | `GET /v1/me` also returns `chain {chainId, spenderAddress, stocks}` (public values the app needs to request a permission). New error codes: `onboarding_required`, `permission_invalid`, `chain_unavailable`, `refill_expired` | Keeps addresses server-side as the one source (CLAUDE.md §6) |
+| 2026-11-25 | Executor settings: max reference age 1 h, max gap 100 bps, quote slippage 50 bps, fee buffer 50 bps, swap deadline 300 s (`server/src/config/executor.js`) | Small safe values; the reference floor in min-out enforces the gap on chain |
+| 2026-11-25 | Refills are planned so the worst fair payout stays under `maxPerRefill` (plan ≤ max × 10000 / (10000 + buffer + gap + 10)); in-flight refills count at that upper bound | Otherwise a capped refill always fails INV-3 |
+| 2026-11-25 | Executor mode: `dry` by default (checks + `eth_simulateV1`, logs `dry_run`, sends nothing). `live` only when the owner sets `EXECUTOR_MODE=live` | Rollout steps 2 and 4 (CLAUDE.md §6) |
+| 2026-11-25 | Sending: the spender is a CDP smart account; refills go out as one ERC-4337 user operation (`sendUserOperation`, idempotency key = refill id). The refill moves to `sent` BEFORE the send call; the user-op hash is saved right after; a `sent` refill with no hash stays locked for a manual check | No double send after a crash; fail closed |
+| 2026-11-25 | Controls (global pause, Stop, agent pause, permission status) are read again right before sending | INV-7 between simulate and send |
+| 2026-11-25 | A confirmed user op whose receipt shows no USDC reaching the agent wallet is marked `failed` (`tx_failed`) | Never record a refill that didn't arrive |
+| 2026-11-25 | The same wait/block reason for an agent is logged at most once an hour; new code `dry_run` (retryable) | Keeps receipts readable on weekends (stale feed every tick) |
+| 2026-11-25 | Lab #1–7: decision-level tests with a fake chain (`test/executor`), batch behaviour on real Base state with the real CDP spender (`test/fork/executor.fork.test.js`: happy, min-out revert, revoked, allowance, destination) | B20 needs `eth_simulateV1`; full executor + fake chain keeps tests fast and offline |
+| 2026-11-25 | Checkpoint B fixes: live mode only for accounts in `LIVE_USER_ADDRESSES` (others run dry) with a per-refill cap `LIVE_MAX_REFILL_USDC` (default $1), checked again right before send; chain time read fresh per agent and for the swap deadline; agent and user re-read under the lock; token decimals read on chain each tick (mismatch = no sales); CDP idempotency key is a UUID v4 derived from the refill id; settle reads our own `UserOperationEvent` success flag and counts only pool → agent USDC; "included but no USDC seen" or "op not in receipt" stays locked with an alert; a send whose hash can't be saved is logged and alerted | Fresh-eyes review findings 1–7 |
+| 2026-11-25 | Deferred to Checkpoint C: accept only Coinbase Smart Wallet / known 7702 accounts as permission signers (any ERC-1271 contract can burn spender gas); alert after 3 `simulation_failed`; owner alert channel for `alert: true` | Review findings 8–9; low risk at rollout step 4 (owner only) |
+| 2026-11-25 | Refill size also fits the permission allowance left today (shrinks instead of blocking; below $0.10 → `allowance_exhausted`). The rollout cap (`LIVE_MAX_REFILL_USDC`, default $1) applies to dry runs too, so a dry run shows exactly what live would do | Owner's first dry run: planned ~$1.97 needed 0.0134 NVDAc > 0.01/day allowance → blocked |
+| 2026-11-25 | Idempotent refill id = agent + 5-minute window + mode, so a dry-run record never takes the id a live run needs; a same-window repeat is skipped with a clear reason | Owner's first live tick ran in the same window as the dry run → `refill_in_flight`, nothing sent (checked on chain) |
+| 2026-11-25 | Price guard accepts a reference up to 30 s newer than our block-time read (age = 0); more than that is still `price_stale` | Owner's live tick: "reference time is in the future". Measured on chain: the feed is normally 40–50 s behind the latest block, so the skew came from the RPC answering the feed read from a newer block than the time read. The owner's PC clock is not used |
+| 2026-11-25 | Phase 3 acceptance met: first real refill on Base mainnet, tx `0x576245f2149007aeafc3fdc32efd2982d6fd24ae1cca4e4e72b470d75aa58655` (0.00665098 NVDAc → 0.988785 USDC, min-out 0.983841, one ERC-4337 user op that also deployed the spender) | Evidence for Option A on mainnet |
+| 2026-11-25 | Scout: an EOA with its own key (`SCOUT_PRIVATE_KEY`, scout/.env only), pays `market-pulse` ($0.03) via x402 v2 `exact` on Base USDC. Guards: Base USDC only, ≤ $0.10 per call, daily budget (default $0.30, `SCOUT_DAILY_MAX_USDC`), cost reserved before paying, unclear outcomes keep the cost reserved. `dry` by default; `SCOUT_MODE=live` to pay. Writes runs straight to `scoutRuns` | Smallest real agent; x402 `exact` needs no ETH in the payer |
+| 2026-11-25 | `/v1/proof` shows Scout runs and the refills of the agent whose wallet = `SCOUT_ADDRESS` (public address in server env); no user ids; balance "unavailable" when the chain read fails | FR-PRF-001; only our own agent is public |
+| 2026-11-25 | Each tick refills agents in order of need: biggest USDC gap below the floor first, unreadable balances last, ties in DB order. The order only; every decision still reads the balance fresh | Owner's agents share one Spend Permission allowance; a $0 agent was starved by one just under its floor (tx `0x062d974c…c815`) |
+| 2026-11-25 | Rate limits are in memory, per IP, per minute: `/v1/auth` 20, writes on `/v1/*` 30, `/v1/proof` 60, `/internal` 10. New error code `rate_limited` (429, retryable, `Retry-After` header) | One API instance on Render; no extra service needed (§12 security) |
+| 2026-11-25 | First real Scout x402 payment: tx `0x57a8130e63de6c5ddd17daa51af113819cc8a2524f9455d4a8e912ef660cf3db` (0.03 USDC to x402stock, HTTP 200). Funded by a manual 0.1 USDC transfer because the day's permission allowance was used; the first Holdtil refill of Scout follows on 2026-11-26 | Owner chose not to wait a day |
+| 2026-11-25 | Keep-alive: `GET /health` pings MongoDB; cron-job.org calls it every 10 min (plus the 5-min tick). API responses send `Cache-Control: no-store`; `TRUST_PROXY_HOPS=2` behind Vercel + Render | Atlas free clusters pause after inactivity (owner); Vercel external rewrites cache by default and set `x-forwarded-for` to the client IP (vercel.com/docs/routing/rewrites, /headers/request-headers) |
+| 2026-11-25 | Scout runs 24/7 from GitHub Actions, hourly (`.github/workflows/scout.yml`); key and Mongo URI as repo secrets, `SCOUT_MODE` as a repo variable. Returns `budget_reached` once the daily budget can't cover a call | Owner's choice: free, separate from the Holdtil server; Scout's own guards still cap spend |
 ---
 
 ## 17. Real vs mocked
@@ -352,7 +410,7 @@ No seeded demo. The live proof is **Holdtil Scout** running on mainnet from Phas
 
 - **Core unit tests:** price guard (fresh/stale, gap edges), limits (every limit, day rollover), planner math in base units, state machine (all legal + illegal transitions).
 - **Concurrency test:** two parallel ticks → one refill (INV-4).
-- **Fork tests (Anvil on Base mainnet fork):** full refill batch; revoked permission; min-out revert; wrong destination rejected.
+- **Fork tests (Base mainnet state via `eth_simulateV1`; Anvil cannot run B20 — §16):** full refill batch; revoked permission; min-out revert; wrong destination rejected.
 - **API tests:** auth nonce/verify/replay; validation; ownership (user A can't touch user B's agent).
 - **Manual checks:** first real refill with owner approval; Scout run; 390px screens.
 - Test counts are reported only after they pass.
@@ -447,7 +505,7 @@ Phases run back to back. An agent stops only for: a manual task, missing env val
 - **Goal:** Repo runs; all 6 Gate 0 premises proven or Option B chosen.
 - **Scope:** monorepo (`client/`, `server/`, `scout/`), lint/test/verify scripts, env example files, `addresses.js` with official sources, Gate 0 scripts under `server/scripts/gate0/` on an Anvil mainnet fork.
 - **Acceptance:** `npm run verify` passes; Gate 0 results with raw evidence in §16.
-- **Tests:** fork scripts for premises 1–4; x402 dry check for 5.
+- **Tests:** fork scripts for premises 1–4 (B20 parts via `eth_simulateV1`, see §16); x402 dry check for 5.
 - **Manual stops:** GitHub repo, MongoDB Atlas, CDP account + keys, RPC URL, owner wallet funding, eligibility check, Stocks Maxxing application.
 - **Review:** — (Opus review of Gate 0 result)
 
@@ -517,6 +575,8 @@ Phases run back to back. An agent stops only for: a manual task, missing env val
 | Render free tier sleeps | Medium | cron-job.org pings `/internal/tick` every 5 min |
 | Budget ($10) runs out | Medium | Tiny amounts; free tiers; no LLM required |
 | Rules or judging criteria change | Medium | Watch Base page + partner Telegram |
+| Owner's wallet can't sign spend permissions (CDP docs: "Spend Permissions in Coinbase Wallet (formerly Base App) are coming soon") | Critical | Check in Phase 2 which wallet holds the owner's NVDAc; Base Account (keys.coinbase.com) path first; Option B executor if needed |
+| NVDAc pool is small (~$18.7k USDC side) | Medium | Gap guard + min-out; small refills |
 
 ---
 
@@ -563,5 +623,6 @@ Phases run back to back. An agent stops only for: a manual task, missing env val
 | 1 | Can the owner hold NVDAc from Nigeria? **Yes — bought on Aerodrome 2026-11-24** | Adesope | done |
 | 2 | Is @holdtil free on X? | Adesope | Nov 25 |
 | 3 | Can one project enter two tracks? | Adesope (partner Telegram) | Dec 5 |
-| 4 | Default limits for new users (floor, target, daily) | Adesope + Claude | Phase 2 |
+| 4 | Default limits for new users (floor, target, daily). **Set in Phase 2: $1 / $3 / $2 per refill / $5 a day per agent, $10 per user (§16)** | Adesope + Claude | done |
 | 5 | Exact deadline time on Dec 12 | Adesope (partner Telegram) | Dec 1 |
+| 6 | Which wallet holds your NVDAc? **Answer 2026-11-24: a plain EOA (no code, nonce 1648, holds 0.00685353 NVDAc).** An EOA can't grant Spend Permissions, which need a Coinbase Smart Wallet / Base Account. Plan: owner opens a Base Account and moves NVDAc there before the Phase 2 signing stop | Adesope | Phase 2 |
