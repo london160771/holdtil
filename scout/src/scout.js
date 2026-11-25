@@ -6,6 +6,8 @@ import { randomUUID } from 'node:crypto';
 export const URL_TO_CALL = 'https://x402stock.xyz/api/v1/market-pulse';
 export const BASE = 'eip155:8453';
 export const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+// x402stock.xyz's payTo, seen in its 402 answers since Gate 0 (2026-11-24) and paid in tx 0x57a8130e… (Checkpoint C #10).
+export const PAY_TO = '0x3070Fbb3803819fB5BdfE9286fdc6325A877fA85';
 export const RUNS = 'scoutRuns';
 
 // Same names as server/src/db/index.js. The server and Scout share one database, so a different name
@@ -28,6 +30,7 @@ export const LIMITS = Object.freeze({
 export function pickPayment(options, { leftTodayAtomic }) {
   const opt = options.find((o) => o.network === BASE && String(o.asset).toLowerCase() === USDC.toLowerCase() && o.scheme === 'exact');
   if (!opt) throw new Error('no Base USDC exact payment option');
+  if (String(opt.payTo).toLowerCase() !== PAY_TO.toLowerCase()) throw new Error('unexpected payee');
   const amount = BigInt(opt.amount);
   if (amount <= 0n || amount > LIMITS.maxPerCallAtomic) throw new Error(`price ${amount} is over the per-call max`);
   if (amount > leftTodayAtomic) throw new Error('over the daily budget');

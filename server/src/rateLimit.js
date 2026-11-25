@@ -7,7 +7,7 @@ import { HoldtilError } from './errors.js';
  * @param {{ windowMs: number, max: number, methods?: string[], now?: () => number }} opts
  * methods: only these HTTP methods count (default: all).
  */
-export function rateLimit({ windowMs, max, methods, now = Date.now }) {
+export function rateLimit({ windowMs, max, methods, global = false, now = Date.now }) {
   const hits = new Map(); // ip -> { start, count }
   let lastSweep = now();
   return (req, res, next) => {
@@ -17,7 +17,8 @@ export function rateLimit({ windowMs, max, methods, now = Date.now }) {
       for (const [k, v] of hits) if (t - v.start >= windowMs) hits.delete(k);
       lastSweep = t;
     }
-    const key = req.ip || 'unknown';
+    // global: one shared bucket for everyone (can't be dodged by faking X-Forwarded-For).
+    const key = global ? '*' : req.ip || 'unknown';
     let h = hits.get(key);
     if (!h || t - h.start >= windowMs) {
       h = { start: t, count: 0 };

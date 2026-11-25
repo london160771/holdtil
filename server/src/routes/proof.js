@@ -24,8 +24,10 @@ export function proofRoutes({ db, config, chain }) {
     let usdcBalance = null;
     if (scout) {
       // scout is a checksummed hex address, so it is safe inside a regex.
-      const agents = await db.collection('agents').find({ walletAddress: { $regex: `^${scout}$`, $options: 'i' } }).project({ _id: 1 }).toArray();
-      const ids = agents.map((a) => String(a._id));
+      // Only the FIRST agent registered for Scout's wallet (the owner's). Anyone else adding the same address
+      // can't put rows on the public page (Checkpoint C #7).
+      const first = await db.collection('agents').find({ walletAddress: { $regex: `^${scout}$`, $options: 'i' } }).sort({ createdAt: 1, _id: 1 }).limit(1).project({ _id: 1 }).toArray();
+      const ids = first.map((a) => String(a._id));
       const list = ids.length ? await db.collection(REFILLS).find({ agentId: { $in: ids } }).sort({ createdAt: -1 }).limit(LIMIT).toArray() : [];
       refills = list.map((x) => {
         const p = publicRefill(x);

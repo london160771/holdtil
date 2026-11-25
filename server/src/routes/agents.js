@@ -10,6 +10,8 @@ import { isAllowlisted } from '../config/addresses.js';
 import { parseUnitsString } from '../services/money.js';
 
 const bad = (msg) => new HoldtilError('invalid_input', msg, { status: 400 });
+// Checkpoint C #4: every active agent costs chain reads each tick.
+export const MAX_AGENTS_PER_USER = 5;
 const MONEY = ['floorUsdc', 'targetUsdc', 'maxPerRefillUsdc', 'dailyLimitUsdc'];
 
 function cleanName(name) {
@@ -85,6 +87,9 @@ export function agentRoutes({ db, chain }) {
     if (wallet === zeroAddress) throw bad('wallet address cannot be the zero address');
     if (isAllowlisted(wallet)) throw bad('wallet address cannot be a token, feed, pool or protocol contract');
     if (wallet.toLowerCase() === req.user.address) throw bad('use a separate wallet for your agent, not your own account');
+    if ((await db.collection('agents').countDocuments({ userId: String(req.user._id) })) >= MAX_AGENTS_PER_USER) {
+      throw bad(`you can have at most ${MAX_AGENTS_PER_USER} agents`);
+    }
     const limits = cleanLimits(body, {
       floorUsdc: DEFAULTS.floorUsdc, targetUsdc: DEFAULTS.targetUsdc, maxPerRefillUsdc: DEFAULTS.maxPerRefillUsdc, dailyLimitUsdc: DEFAULTS.dailyLimitUsdc,
     });

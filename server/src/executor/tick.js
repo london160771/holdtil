@@ -26,6 +26,15 @@ function stop(code, reason, extra = {}) {
 }
 
 /** Upper bound of USDC a refill planned at `usdc` can pay out, so in-flight counting stays conservative. */
+/**
+ * Safe text for stored notes and API answers (Checkpoint C #3). viem messages can include the RPC URL,
+ * and a provider URL can carry its API key in the path. Use the short message and strip any URL.
+ */
+export function safeMessage(e, fallback = 'error') {
+  const raw = typeof e === 'string' ? e : (e?.shortMessage ?? e?.message ?? fallback);
+  return String(raw).split('\n')[0].replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, '[url]').slice(0, 200);
+}
+
 const upperBound = (usdc) => (usdc * (10_000n + EXECUTOR.bufferBps + EXECUTOR.maxGapBps + 10n) + 9_999n) / 10_000n;
 
 async function loadUser(db, agent) {
@@ -239,6 +248,14 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
   if (!user) return { agentId, result: 'skipped', code: 'paused', reason: 'owner not found' };
   if (user.stoppedAt) return { agentId, result: 'skipped', code: 'paused', reason: 'owner pressed Stop' };
   if (agent.status !== 'active') return { agentId, result: 'skipped', code: 'paused', reason: 'agent paused' };
+  // Checkpoint C #6: each failed transaction costs the spender gas. After a few in a day, stop trying
+  // for this agent until the day passes, so a broken wallet or batch can't drain the gas wallet.
+  const failedRecently = await db.collection(REFILLS).countDocuments({ agentId, state: 'failed', code: 'tx_failed', createdAt: { $gte: new Date(now.getTime() - 24 * 3600 * 1000) } });
+  if (failedRecently >= EXECUTOR.maxFailedTxPerDay) {
+    const reason = `${failedRecently} failed transactions in 24 hours; waiting before trying again`;
+    const d = await recordDecision(db, { agentId, tickId: runId, now, code: 'paused', reason, facts: {} });
+    return { agentId, result: 'skipped', code: 'paused', reason, alert: Boolean(d.logged), ...d };
+  }
 
   const plan = await evaluate({ db, chain, agent, user, stock, nowSec, liveCap });
   if (plan.ok && !plan.needed) return { agentId, result: 'not_needed' };
@@ -298,10 +315,10 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
     try {
       sim = await chain.simulateRefill({ calls, agentWallet: agent.walletAddress });
     } catch (e) {
-      sim = { ok: false, error: e?.message ?? 'simulation error' };
+      sim = { ok: false, error: safeMessage(e, 'simulation error') };
     }
     if (!sim.ok || typeof sim.usdcOut !== 'bigint' || sim.usdcOut < again.minOut) {
-      return await fail('simulation_failed', sim.error ?? `simulated USDC ${sim.usdcOut ?? 'unknown'} below min-out`);
+      return await fail('simulation_failed', sim.error ? safeMessage(sim.error) : `simulated USDC ${sim.usdcOut ?? 'unknown'} below min-out`);
     }
     refill = await moveRefill(db, refill, 'simulated', { at: at(), fields: { simulatedUsdcOut: sim.usdcOut } });
 
@@ -322,7 +339,7 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
       await recordSendHash(db, refill.refillId, userOpHash);
     } catch (e) {
       // Checkpoint B #5: never lose the hash. It is not a secret; log it so the owner can find the op.
-      console.error(`[executor] ALERT refill ${refill.refillId} sent as user op ${userOpHash} but the hash was not saved: ${e?.message}`);
+      console.error(`[executor] ALERT refill ${refill.refillId} sent as user op ${userOpHash} but the hash was not saved: ${safeMessage(e)}`);
       return { agentId, refillId: refill.refillId, result: 'sent', alert: true, userOpHash, reason: 'hash not saved; check by hand' };
     }
     refill = { ...refill, userOpHash };
@@ -331,9 +348,11 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
   } catch (e) {
     // Anything unexpected before `sent`: release the lock as a retryable wait. After `sent`: leave it locked.
     if (['planned', 'checked', 'simulated'].includes(refill.state)) {
-      return await fail('simulation_failed', `executor error: ${e?.message ?? e}`);
+      console.error('[executor] error before send:', safeMessage(e));
+      return await fail('simulation_failed', 'executor error before send; see server log');
     }
-    return { agentId, refillId: refill.refillId, result: refill.state, alert: true, error: e?.code ?? 'internal_error', reason: e?.message };
+    console.error('[executor] ALERT error after send:', safeMessage(e));
+    return { agentId, refillId: refill.refillId, result: refill.state, alert: true, error: e?.code ?? 'internal_error', reason: 'error after send; check by hand' };
   }
 }
 
@@ -377,7 +396,8 @@ export async function runTick({ db, chain, config, mode = 'dry', now = new Date(
       summary.recovered.settled.push(await settleSent(db, chain, r));
       if (summary.recovered.settled.at(-1).alert) summary.alert = true;
     } catch (e) {
-      summary.recovered.settled.push({ refillId: r.refillId, error: e?.message });
+      summary.recovered.settled.push({ refillId: r.refillId, error: safeMessage(e) });
+      summary.alert = true;
     }
   }
 
@@ -398,13 +418,34 @@ export async function runTick({ db, chain, config, mode = 'dry', now = new Date(
     summary.error = 'chain_unavailable';
     return summary;
   }
-  const agents = await orderByNeed(chain, await db.collection('agents').find({ status: 'active' }).toArray());
+  // Checkpoint C #4: only agents whose owner has a signed permission and has not pressed Stop cost chain reads.
+  const withPermission = new Set(await db.collection('permissions').distinct('userId', { status: 'signed' }));
+  const stopped = new Set((await db.collection('users').find({ stoppedAt: { $ne: null } }).project({ _id: 1 }).toArray()).map((u) => String(u._id)));
+  const all = await db.collection('agents').find({ status: 'active' }).toArray();
+  // Cheap path, no chain reads: record why nothing happens (deduped hourly by recordDecision).
+  for (const agent of all.filter((a) => stopped.has(a.userId) || !withPermission.has(a.userId))) {
+    const agentId = String(agent._id);
+    if (stopped.has(agent.userId)) {
+      summary.agents.push({ agentId, result: 'skipped', code: 'paused', reason: 'owner pressed Stop' });
+      continue;
+    }
+    const [code, reason] = ['permission_revoked', 'no signed spend permission'];
+    try {
+      const d = await recordDecision(db, { agentId, tickId: `${tickId}:${mode}`, now, code, reason, facts: {} });
+      summary.agents.push({ agentId, result: decisionStateFor(code), code, reason, ...d });
+    } catch (e) {
+      summary.agents.push({ agentId, result: 'error', error: e?.code ?? 'internal_error', reason: safeMessage(e) });
+    }
+  }
+  const agents = await orderByNeed(chain, all.filter((a) => withPermission.has(a.userId) && !stopped.has(a.userId)));
   for (const agent of agents) {
     try {
       summary.agents.push(await processAgent({ db, chain, config, agent, tickId, now, mode }));
     } catch (e) {
-      summary.agents.push({ agentId: String(agent._id), result: 'error', error: e?.code ?? 'internal_error', reason: e?.message });
+      summary.agents.push({ agentId: String(agent._id), result: 'error', error: e?.code ?? 'internal_error', reason: safeMessage(e) });
+      summary.alert = true;
     }
+    if (summary.agents.at(-1)?.alert) summary.alert = true;
   }
   return summary;
 }

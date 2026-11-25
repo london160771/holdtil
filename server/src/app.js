@@ -71,6 +71,17 @@ export function createApp({ db, config, chain, executorChain } = {}) {
     const limits = config?.rateLimits ?? {};
     const write = ['POST', 'PATCH', 'PUT', 'DELETE'];
     app.use('/v1/auth', rateLimit({ windowMs: 60_000, max: limits.auth ?? 20 }));
+    // Checkpoint C #5: a shared cap too, since per-IP keys can be faked by calling Render directly.
+    app.use('/v1/auth', rateLimit({ windowMs: 60_000, max: limits.authGlobal ?? 300, global: true }));
+    app.use('/v1', rateLimit({ windowMs: 60_000, max: limits.read ?? 120, methods: ['GET'] }));
+    // Checkpoint C #9: a browser always sends Origin on cross-site writes. Refuse any that isn't the app.
+    app.use('/v1', (req, _res, next) => {
+      const origin = req.get('origin');
+      if (write.includes(req.method) && origin && config?.appOrigin && origin !== config.appOrigin) {
+        return next(new HoldtilError('auth_failed', 'Request from another site refused', { status: 403 }));
+      }
+      next();
+    });
     app.use('/v1', rateLimit({ windowMs: 60_000, max: limits.write ?? 30, methods: write }));
     app.use('/v1/proof', rateLimit({ windowMs: 60_000, max: limits.proof ?? 60 }));
     app.use('/internal', rateLimit({ windowMs: 60_000, max: limits.internal ?? 10 }));

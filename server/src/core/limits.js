@@ -34,7 +34,12 @@ export function spentToday(refills, nowSec) {
   for (const r of refills) {
     if (utcDayKey(toUnixSec(r.createdAt)) !== today) continue;
     if (r.state === 'confirmed') total += toUnits(r.usdcOut ?? r.plannedUsdc, 'usdcOut');
-    else if (IN_FLIGHT.has(r.state)) total += toUnits(r.plannedUsdc, 'plannedUsdc');
+    else if (IN_FLIGHT.has(r.state)) {
+      // The larger of the lock-time plan and the re-checked max payout (Checkpoint C #8).
+      const planned = toUnits(r.plannedUsdc, 'plannedUsdc');
+      const payout = r.maxPayoutUsdc !== undefined && r.maxPayoutUsdc !== null ? toUnits(r.maxPayoutUsdc, 'maxPayoutUsdc') : 0n;
+      total += payout > planned ? payout : planned;
+    }
   }
   return total;
 }

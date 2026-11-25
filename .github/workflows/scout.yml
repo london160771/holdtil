@@ -1,5 +1,6 @@
 # Holdtil Scout, once an hour (PRD §16 2026-11-25). Runs only when the owner has added the repo secrets.
 # Secrets (repo → Settings → Secrets and variables → Actions → Secrets): SCOUT_PRIVATE_KEY, MONGODB_URI.
+# MONGODB_URI here is Scout's OWN Atlas user that can only touch holdtil.scoutRuns (never the app's user).
 # Variable (same page → Variables): SCOUT_MODE=live to pay; anything else = dry run (reads the price only).
 # Scout's own guards still apply: Base USDC only, ≤ $0.10 per call, daily budget (default $0.30).
 name: scout
@@ -22,15 +23,16 @@ jobs:
       - name: Skip when secrets are not set
         if: env.HAS_SECRETS != 'true'
         run: echo "SCOUT_PRIVATE_KEY or MONGODB_URI not set; skipping."
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         if: env.HAS_SECRETS == 'true'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: env.HAS_SECRETS == 'true'
         with:
           node-version: 22
           cache: npm
+      # Scout's packages only, no install scripts (Checkpoint C #2).
       - if: env.HAS_SECRETS == 'true'
-        run: npm ci
+        run: npm ci -w scout --ignore-scripts
       - name: Scout run
         if: env.HAS_SECRETS == 'true'
         env:

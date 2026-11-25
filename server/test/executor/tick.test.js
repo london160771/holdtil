@@ -307,6 +307,16 @@ describe('API: /internal/tick and /v1/refills', () => {
     expect(ex.s.sends).toHaveLength(0);
   });
 
+  it('Checkpoint C #6: a tick with an alert answers 500 so the cron service emails the owner', async () => {
+    const ex = fakeExecutor(chain);
+    const tickApp = createApp({ db: env.db, config: { ...liveConfig, tickSecret: 'test-secret', executorMode: 'live' }, chain, executorChain: ex });
+    await setupUser();
+    ex.sendRefill = async () => ({ userOpHash: 'not-a-hash' });
+    const res = await request(tickApp).post('/internal/tick').set('x-tick-secret', 'test-secret');
+    expect(res.status).toBe(500);
+    expect(res.body.alert).toBe(true);
+  });
+
   it('refills list shows own receipts only', async () => {
     const { a, agentId } = await setupUser();
     await live(fakeExecutor(chain));
@@ -395,6 +405,28 @@ describe('Checkpoint B fixes', () => {
     const c = { readUsdcBalance: async (w) => { if (!(w in bal)) throw new Error('rpc'); return bal[w]; } };
     const out = await orderByNeed(c, [mk('x', 1_000_000), mk('a', 1_000_000), mk('c', 1_000_000), mk('b', 1_000_000)]);
     expect(out.map((g) => g._id)).toEqual(['b', 'a', 'c', 'x']);
+  });
+
+  it('Checkpoint C #6: after 2 failed transactions in 24 h the agent waits, with one alert', async () => {
+    const { agentId } = await setupUser();
+    for (const id of ['f1', 'f2']) await env.db.collection(REFILLS).insertOne({ refillId: id, agentId, state: 'failed', code: 'tx_failed', plannedUsdc: '0', createdAt: new Date(), history: [] });
+    const ex = fakeExecutor(chain);
+    const sum = await live(ex);
+    expect(resultFor(sum, agentId)).toMatchObject({ code: 'paused', alert: true });
+    expect(sum.alert).toBe(true);
+    expect(ex.s.sends).toHaveLength(0);
+    expect(resultFor(await live(ex), agentId)).toMatchObject({ code: 'paused', alert: false }); // alert once, not every tick
+  });
+
+  it('Checkpoint C #4: an agent without any signed permission costs no chain reads', async () => {
+    const { agentId } = await setupUser({ permission: false });
+    const ex = fakeExecutor(chain);
+    let reads = 0;
+    const orig = ex.readUsdcBalance;
+    ex.readUsdcBalance = async (...a) => { reads += 1; return orig(...a); };
+    const sum = await live(ex);
+    expect(resultFor(sum, agentId)).toMatchObject({ code: 'permission_revoked' });
+    expect(reads).toBe(0);
   });
 
   it('permission allowance used up → allowance_exhausted, no tx', async () => {

@@ -47,6 +47,14 @@ describe('GET /v1/proof (public)', () => {
     expect(JSON.stringify(res.body)).not.toContain(owner.address.toLowerCase());
   });
 
+  it('Checkpoint C #7: someone else adding Scout\'s address as their agent adds nothing to /proof', async () => {
+    const before = (await request(app).get('/v1/proof')).body.refills.length;
+    const intruder = await signIn(app, newUser());
+    const fake = (await intruder.post('/v1/agents').send({ name: 'Fake scout', walletAddress: scout })).body.agent;
+    await env.db.collection(REFILLS).insertOne({ refillId: 'x1', agentId: fake.id, state: 'confirmed', usdcOut: '999', createdAt: new Date(), history: [] });
+    expect((await request(app).get('/v1/proof')).body.refills).toHaveLength(before);
+  });
+
   it('chain down → balance "unavailable", never a guess', async () => {
     chain.state.fail = true;
     const res = await request(app).get('/v1/proof');

@@ -9,4 +9,5 @@ export const EXECUTOR = Object.freeze({
   deadlineSec: 300n, // swap deadline after simulation
   confirmTimeoutSec: 60, // how long a tick waits for the user op; later ticks settle it
   repeatDecisionMs: 60 * 60_000, // same wait/block reason for the same agent is logged at most once an hour
+  maxFailedTxPerDay: 2, // after 2 failed transactions in 24 h for one agent, stop sending for it (gas protection)
 });

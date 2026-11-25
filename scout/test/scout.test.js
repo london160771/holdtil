@@ -95,6 +95,12 @@ describe('runOnce', () => {
   });
 });
 
+describe('payee pin (Checkpoint C #10)', () => {
+  it('refuses to pay anyone but x402stock', () => {
+    expect(() => pickPayment([opt({ payTo: '0x000000000000000000000000000000000000dEaD' })], { leftTodayAtomic: 300_000n })).toThrow(/payee/);
+  });
+});
+
 describe('indexes shared with the server', () => {
   it('server then Scout, and Scout then server: no IndexOptionsConflict, runId stays unique', async () => {
     for (const name of ['idx_a', 'idx_b']) {

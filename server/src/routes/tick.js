@@ -15,7 +15,9 @@ export function tickRoutes({ db, config, executorChain }) {
     }
     if (!executorChain) throw new HoldtilError('internal_error', 'executor not configured', { status: 500 });
     const summary = await runTick({ db, chain: executorChain, config, mode: config.executorMode });
-    res.json(JSON.parse(JSON.stringify(summary, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))));
+    // Alerts and tick-level errors answer 500 so cron-job.org marks the run failed and emails the owner
+    // (Checkpoint C #6). The body still has the full summary.
+    res.status(summary.alert || summary.error ? 500 : 200).json(JSON.parse(JSON.stringify(summary, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))));
   });
   return r;
 }
