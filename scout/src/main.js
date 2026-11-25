@@ -5,7 +5,7 @@ import { MongoClient } from 'mongodb';
 import { privateKeyToAccount } from 'viem/accounts';
 import { wrapFetchWithPaymentFromConfig, decodePaymentResponseHeader } from '@x402/fetch';
 import { ExactEvmScheme } from '@x402/evm';
-import { runOnce, BASE, LIMITS } from './scout.js';
+import { runOnce, ensureScoutIndexes, BASE, LIMITS } from './scout.js';
 
 const missing = ['SCOUT_PRIVATE_KEY', 'MONGODB_URI'].filter((n) => !process.env[n]);
 if (missing.length) {
@@ -19,8 +19,7 @@ const intervalMin = Math.max(5, Number(process.env.SCOUT_INTERVAL_MIN ?? 60) || 
 
 const mongo = await MongoClient.connect(process.env.MONGODB_URI);
 const db = mongo.db('holdtil');
-await db.collection('scoutRuns').createIndex({ runId: 1 }, { unique: true });
-await db.collection('scoutRuns').createIndex({ createdAt: -1 });
+await ensureScoutIndexes(db);
 
 const makePaidFetch = (selector) =>
   wrapFetchWithPaymentFromConfig(fetch, { schemes: [{ network: BASE, client: new ExactEvmScheme(account) }], paymentRequirementsSelector: selector });

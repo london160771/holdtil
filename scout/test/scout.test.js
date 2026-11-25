@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient } from 'mongodb';
-import { pickPayment, summarize, runOnce, spentToday, USDC, BASE, RUNS } from '../src/scout.js';
+import { pickPayment, summarize, runOnce, spentToday, ensureScoutIndexes, USDC, BASE, RUNS } from '../src/scout.js';
+import { ensureIndexes } from '../../server/src/db/index.js';
 
 const opt = (o = {}) => ({ scheme: 'exact', network: BASE, asset: USDC, amount: '30000', payTo: '0x3070Fbb3803819fB5BdfE9286fdc6325A877fA85', ...o });
 const reqHeader = (accepts = [opt()]) => Buffer.from(JSON.stringify({ x402Version: 2, accepts })).toString('base64');
@@ -82,5 +83,23 @@ describe('runOnce', () => {
     for (let i = 0; i < 10; i++) await runOnce(deps({ mode: 'live', now }));
     expect(await spentToday(db, now)).toBe(300_000n);
     await expect(runOnce(deps({ mode: 'live', now }))).rejects.toThrow(/daily budget/);
+  });
+});
+
+describe('indexes shared with the server', () => {
+  it('server then Scout, and Scout then server: no IndexOptionsConflict, runId stays unique', async () => {
+    for (const name of ['idx_a', 'idx_b']) {
+      const d = client.db(name);
+      if (name === 'idx_a') {
+        await ensureIndexes(d);
+        await ensureScoutIndexes(d);
+      } else {
+        await ensureScoutIndexes(d);
+        await ensureIndexes(d);
+      }
+      await ensureScoutIndexes(d); // safe to run twice
+      await d.collection(RUNS).insertOne({ runId: 'r1' });
+      await expect(d.collection(RUNS).insertOne({ runId: 'r1' })).rejects.toThrow(/duplicate key/);
+    }
   });
 });

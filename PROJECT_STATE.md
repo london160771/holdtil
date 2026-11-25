@@ -131,6 +131,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 
 - **2026-11-25 — Phase 5 started.** Rate limits on auth, writes, proof and tick (+3 tests). `/docs` connect guide page (screenshots at 1280px and 390px checked, no sideways scroll). Clear message when the API can't be reached (502/503/504 or network error) instead of "Request failed (502)".
 
+- **2026-11-25 — Fix: Scout crashed at start with IndexOptionsConflict** (owner step 7). The server makes the `scoutRuns` indexes as `runId_unique` and `recent`; Scout made the same keys with default names. Scout now uses the same names (`ensureScoutIndexes`), +1 test that runs both orders on one database. No Atlas cleanup needed. Nothing was paid.
+
 ## 11. Manual tasks (owner)
 
 Status: ⬜ to do · ✅ done

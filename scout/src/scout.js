@@ -8,6 +8,17 @@ export const BASE = 'eip155:8453';
 export const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 export const RUNS = 'scoutRuns';
 
+// Same names as server/src/db/index.js. The server and Scout share one database, so a different name
+// for the same key fails with IndexOptionsConflict (owner report 2026-11-25).
+export const RUN_INDEXES = [
+  { key: { runId: 1 }, options: { unique: true, name: 'runId_unique' } },
+  { key: { createdAt: -1 }, options: { name: 'recent' } },
+];
+
+export async function ensureScoutIndexes(db) {
+  for (const { key, options } of RUN_INDEXES) await db.collection(RUNS).createIndex(key, options);
+}
+
 export const LIMITS = Object.freeze({
   maxPerCallAtomic: 100_000n, // $0.10 per call, never more
   defaultDailyAtomic: 300_000n, // $0.30 a day unless SCOUT_DAILY_MAX_USDC says otherwise
