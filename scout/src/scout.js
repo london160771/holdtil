@@ -67,12 +67,21 @@ export async function runOnce({ db, fetchImpl = fetch, makePaidFetch, decodePaym
   const spent = await spentToday(db, now);
   const leftTodayAtomic = dailyMaxAtomic > spent ? dailyMaxAtomic - spent : 0n;
 
+  // Budget used up: a normal outcome, not an error (the hourly job runs on after the day's budget is spent).
+  if (leftTodayAtomic === 0n) return { runId, mode, status: 'budget_reached', leftTodayAtomic: '0' };
+
   // Read the price first (unpaid request returns 402 + requirements).
   const probe = await fetchImpl(URL_TO_CALL);
   const header = probe.headers.get('payment-required');
   if (probe.status !== 402 || !header) throw new Error(`expected 402 from x402stock, got ${probe.status}`);
   const reqs = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
-  const opt = pickPayment(reqs.accepts ?? [], { leftTodayAtomic });
+  let opt;
+  try {
+    opt = pickPayment(reqs.accepts ?? [], { leftTodayAtomic });
+  } catch (e) {
+    if (e.message === 'over the daily budget') return { runId, mode, status: 'budget_reached', leftTodayAtomic: leftTodayAtomic.toString() };
+    throw e;
+  }
 
   if (mode !== 'live') {
     return { runId, mode, status: 'dry_run', wouldPayAtomic: opt.amount, payTo: opt.payTo, leftTodayAtomic: leftTodayAtomic.toString() };

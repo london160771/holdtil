@@ -33,7 +33,11 @@
   1. Create a job: URL `https://<your-service>.onrender.com/internal/tick`, method **POST**, every **5 minutes**, header `x-tick-secret` = your `TICK_SECRET`.
   2. Create a second job: URL `https://<your-service>.onrender.com/health`, method GET, every **10 minutes**. **This is the keep-alive:** each call pings MongoDB, so the Atlas free cluster never pauses for inactivity, and Render stays awake.
   3. Check: the cron-job.org history shows 200 for both; the dashboard shows new decisions every 5 minutes.
-- *Part D — Scout 24/7:* waiting for your choice in the thread (where Scout runs).
+- *Part D — Scout 24/7 (recommended: GitHub Actions, hourly; waiting for your pick in the thread)*
+  1. GitHub → `holdtil` repo → **Settings → Secrets and variables → Actions → New repository secret**: `SCOUT_PRIVATE_KEY` (copy it from your `scout/.env` yourself, never into chat) and `MONGODB_URI`.
+  2. Same page → **Variables** tab → `SCOUT_MODE` = `live`.
+  3. **Actions** tab → `scout` → **Run workflow** once. Check: the log ends with `"status":"paid"` (or `budget_reached` once $0.30 is spent that day); `/proof` shows the run. After that it runs by itself every hour at :17.
+  4. On your PC set `SCOUT_MODE=` empty in `scout/.env`, so Scout doesn't also pay from there.
 - *Domain (optional, later):* Vercel → project → Domains → add `holdtil.xyz` and follow the DNS steps; then set `APP_ORIGIN=https://holdtil.xyz` on Render.
 - *What happens next:* Claude checks `/health`, `/proof` and the first ticks on the live URL, and records the URLs in README and REAL_VS_MOCKED.
 
@@ -160,6 +164,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Phase 4: first real Scout payment** (owner-approved, step 8): tx `0x57a8130e63de6c5ddd17daa51af113819cc8a2524f9455d4a8e912ef660cf3db`. Verified on chain: success; one USDC Transfer of 30000 ($0.03) from Scout to x402stock's payTo `0x3070Fbb3803819fB5BdfE9286fdc6325A877fA85`. Paid from 0.1 USDC the owner sent by hand. Second real refill (to Test Agent) `0x062d974c…c815` also verified. Left for Phase 4 acceptance: Scout's first Holdtil refill (2026-11-26).
 
 - **2026-11-25 — Phase 5: deploy prep.** Keep-alive (owner request): `/health` now pings MongoDB (`db: ok`, 503 if down); cron-job.org calls it every 10 min so the Atlas free cluster never pauses, and the 5-min tick also uses the DB. `Cache-Control: no-store` on `/v1` and `/internal` (Vercel external rewrites cache by default). `TRUST_PROXY_HOPS` (2 behind Vercel + Render) so rate limits are per client IP. `.node-version` 22. Dashboard retry when the API is down. +5 tests. Deploy guide P5-DEPLOY in §1.
+
+- **2026-11-25 — Scout hosting prep.** `.github/workflows/scout.yml`: hourly `npm run scout` from GitHub Actions, skipped until the owner adds the repo secrets; pays only with repo variable `SCOUT_MODE=live`. Scout now returns `budget_reached` (no error, nothing reserved) once the day's budget can't cover a call. +1 scout test. Owner picks where Scout runs (card in thread; recommended GitHub Actions).
 
 ## 11. Manual tasks (owner)
 

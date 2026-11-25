@@ -82,7 +82,16 @@ describe('runOnce', () => {
     const now = new Date();
     for (let i = 0; i < 10; i++) await runOnce(deps({ mode: 'live', now }));
     expect(await spentToday(db, now)).toBe(300_000n);
-    await expect(runOnce(deps({ mode: 'live', now }))).rejects.toThrow(/daily budget/);
+    const before = await db.collection(RUNS).countDocuments();
+    expect(await runOnce(deps({ mode: 'live', now }))).toMatchObject({ status: 'budget_reached', leftTodayAtomic: '0' });
+    expect(await db.collection(RUNS).countDocuments()).toBe(before); // nothing reserved, nothing paid
+  });
+
+  it('budget left but below the price → budget_reached, no payment', async () => {
+    await db.collection(RUNS).deleteMany({});
+    const r = await runOnce(deps({ mode: 'live', dailyMaxAtomic: 20_000n }));
+    expect(r).toMatchObject({ status: 'budget_reached', leftTodayAtomic: '20000' });
+    expect(await db.collection(RUNS).countDocuments()).toBe(0);
   });
 });
 
