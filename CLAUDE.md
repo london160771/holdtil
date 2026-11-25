@@ -44,6 +44,8 @@ npm run verify         # lint + test + build — the gate
 npm run tick           # one executor tick by hand (reads server/.env; dry unless EXECUTOR_MODE=live)
 npm run scout          # one Holdtil Scout run (reads scout/.env; dry unless SCOUT_MODE=live)
 npm run scout:new-key  # create Scout's wallet key in scout/.env (prints the address only)
+npm run scout:sweep    # move Scout's USDC to SWEEP_TO (dry unless -- --send)
+npm run spender -- info|sweep [--send]   # spender address/ETH; sweep ETH to SWEEP_TO (spender:prod reads server/.env.prod)
 ```
 
 ## 5. Scope
