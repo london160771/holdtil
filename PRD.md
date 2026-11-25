@@ -266,10 +266,11 @@ No extra MVP endpoints beyond this table.
 | Base tool | Job it does in the core path | File(s) |
 |---|---|---|
 | Coinbase tokenized stocks (B20, e.g. NVDAc) | The treasury asset that gets sold for refills | `server/src/config/addresses.js` |
-| Base Account + Sign in with Base | Login and permission signing | `client/src/auth/*` |
-| Spend Permissions | Hard user limits + revoke | `server/src/chain/spendPermission.js` |
+| Base Account + Sign in with Base | Login and permission signing | `client/src/wallet.js`, `server/src/routes/auth.js` |
+| Spend Permissions | Hard user limits + revoke | `server/src/chain/spendPermission.js`, `server/src/chain/refillBatch.js` |
 | Chainlink tokenized equity feeds on Base | Reference price for the fair-price guard | `server/src/chain/priceFeed.js` |
-| Aerodrome (or aggregator, per Gate 0) | Stock → USDC swap with min-out | `server/src/chain/swap.js` |
+| Aerodrome Slipstream (per Gate 0) | Stock → USDC swap with min-out | `server/src/chain/quote.js`, `server/src/chain/refillBatch.js` |
+| CDP smart account (spender) | Sends the refill batch as one ERC-4337 user op; holds gas only | `server/src/chain/spender.js`, `server/src/chain/executorChain.js` |
 | x402 | How agents pay; Scout pays x402stock | `scout/*` |
 
 - **Evaluated and rejected:** Anvil fork for B20 flows (can't run B20 precompiles); 0x / aggregator API (not needed: direct Aerodrome pool is deep enough for small refills, and one fewer API key); the Chainlink 24/7 NVDA feed (we want the 24/5 reference so weekends read as stale and we wait).

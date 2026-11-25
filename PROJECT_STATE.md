@@ -128,7 +128,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - `npm audit`: 3 high-severity advisories inside `@coinbase/cdp-sdk`'s own nested `zod`/`abitype`. The only "fix" downgrades the SDK to 1.7.0. Left as is; re-check before launch (Checkpoint C).
 - Dev spender created (M9 done): `0xb7F3c5F916359B303d3ecEbB39f47969444fd15B`. Owner's Base Account `0x406b…4c56` funded with NVDAc (M10 done).
 - The owner's smart wallet is an EIP-7702 account. Sign in falls back to plain signature recovery when the address has 7702 code (PRD §16). Worked with the real wallet 2026-11-25.
-- Same-origin hosting (Vercel rewrite of `/v1` to Render) is needed for the session cookie in production. Not written yet; Phase 5 deploy guide.
+- Same-origin hosting (Vercel rewrite of `/v1` to Render) is needed for the session cookie in production. Guide: P5-DEPLOY (§1); `client/vercel.json` is added once the Render URL is known.
 
 ## 9. Handoff notes
 
