@@ -116,7 +116,7 @@ export default function Landing({ onSignedIn }) {
     <div className="landing">
       <section className="hero">
         <div className="hero-copy enter">
-          <h1 className="hero-title">Your agent&apos;s money stays invested until it pays.</h1>
+          <h1 className="hero-title">Your agent&apos;s budget stays invested until it pays.</h1>
           <p className="hero-sub">
             Keep your AI agent&apos;s budget in tokenized stocks on Base. When the agent&apos;s USDC runs low, Holdtil sells a small amount of stock and tops it up,
             but only at a fair price and only inside your limits.

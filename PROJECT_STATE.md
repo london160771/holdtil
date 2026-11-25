@@ -123,6 +123,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 | 5 — Control returns | no | | |
 
 ## 8. Known issues and limitations
+- Flaky test (seen 2026-11-25, 1 of 4 runs): `tick.test.js` "two ticks in different 5-minute windows at once → still one refill". The fake chain's USDC balance never rises after a refill, so if the first tick fully confirms before the second plans, the second refills again. Test timing only, not a product bug (on chain the balance rises). Fix later by making the fake balance rise after a confirmed refill.
 
 - Eligibility confirmed: owner bought and holds NVDAc from Nigeria (2026-11-24).
 - Anvil can't run B20 precompiles; B20 tests use `eth_simulateV1` (PRD §16).
@@ -231,7 +232,7 @@ Status: ⬜ to do · ✅ done
 
 **M7 — X account**
 1. Check x.com/holdtil is free. If yes, create it with the same email you'll use for the project.
-2. Bio: "Your agent's money stays invested until it pays. Built on @base."
+2. Bio: "Your agent's budget stays invested until it pays. Built on @base."
 3. Tell Claude the handle (or a backup handle if taken).
 
 **M8 — Domain (later)**

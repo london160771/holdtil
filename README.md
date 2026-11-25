@@ -1,6 +1,6 @@
 # Holdtil
 
-**Your agent's money stays invested until it pays.**
+**Your agent's budget stays invested until it pays.**
 
 AI agents now pay their own bills: data, tools and APIs, one small USDC payment at a time (x402). So their owners keep a pile of USDC sitting in the agent's wallet, doing nothing. Holdtil lets you keep that budget in **tokenized stock on Base** (NVDAc, tokenized NVIDIA) in **your own wallet**, and only turns a small piece into USDC when the agent is about to run out. It sells **only at a fair price and only inside the limits you sign**. If the price looks wrong, it waits.
 
@@ -61,7 +61,7 @@ There are two balances, in two different wallets:
 | Size | Most of the budget | Small: between the floor and the target you set |
 | Moves with the stock price? | Yes, it can go up or down | No, 1 USDC ≈ $1 |
 
-**So "the agent's money stays invested" means:** the agent's *budget* is held as stock in your wallet. Only the small slice it is about to spend is USDC in the agent's wallet. The stock never sits in the agent's wallet, and Holdtil never holds it.
+**So "the agent's budget stays invested" means:** the agent's *budget* is held as stock in your wallet. Only the small slice it is about to spend is USDC in the agent's wallet. The stock never sits in the agent's wallet, and Holdtil never holds it.
 
 **A refill, with the default limits** (floor $1, target $3, max $2 per refill, $5 per agent per day, $10 per account per day):
 

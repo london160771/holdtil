@@ -6,7 +6,7 @@
 ## 1. What this is
 
 **Holdtil** — lets AI agent owners keep their agent's money in tokenized stocks on Base and pay the agent's x402 bills from it, selling only at fair prices and only within the owner's limits.
-Tagline: "Your agent's money stays invested until it pays."
+Tagline: "Your agent's budget stays invested until it pays."
 Hackathon: Base Stocks Maxxing — Agentic Stock Finance. Deadline: 2026-12-12 (see PRD header). **Internal cutoff: 2026-12-11, 12:00 WAT.**
 
 Flow: `FUND WITH STOCK → AGENT PAYS → FLOAT RUNS LOW → FAIR-PRICE REFILL → PRICE OFF? WAIT → OWNER STOPS IT ANYTIME`
