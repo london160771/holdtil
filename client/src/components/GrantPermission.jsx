@@ -57,7 +57,7 @@ export default function GrantPermission({ me, onDone }) {
       </div>
       {error && <div className="alert alert-danger mb-0" role="alert">{error}</div>}
       <div>
-        <button className="btn btn-primary" disabled={busy}>{busy ? 'Waiting for your wallet…' : 'Sign spend permission'}</button>
+        <button className="btn btn-ink" disabled={busy}>{busy ? 'Waiting for your wallet…' : 'Sign spend permission'}</button>
       </div>
     </form>
   );

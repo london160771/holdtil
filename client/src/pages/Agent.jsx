@@ -4,6 +4,8 @@ import { api } from '../api.js';
 import { usd } from '../format.js';
 import AgentForm from '../components/AgentForm.jsx';
 import Receipts from '../components/Receipts.jsx';
+import { ArrowLeft, Pause, Play } from 'lucide-react';
+import { StateChip } from '../components/Tape.jsx';
 
 export default function Agent() {
   const { id } = useParams();
@@ -30,32 +32,35 @@ export default function Agent() {
     setSaved(true);
   };
 
-  if (agent === undefined) return <p className="text-body-secondary">Loading…</p>;
+  if (agent === undefined) return <p className="text-secondary">Loading…</p>;
   if (agent === null) return <div className="alert alert-danger">{error} <Link to="/app">Back</Link></div>;
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <Link to="/app" className="small">← Dashboard</Link>
-      <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-2 mb-3">
-        <h1 className="h3 mb-0">{agent.name}</h1>
+    <div className="page">
+      <Link to="/app" className="back"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden="true" /> Dashboard</Link>
+      <div className="page-head mt-3">
+        <h1 className="page-title">{agent.name}</h1>
         <button
           type="button"
           className={`btn ${agent.status === 'active' ? 'btn-outline-danger' : 'btn-success'}`}
           onClick={() => patch({ status: agent.status === 'active' ? 'paused' : 'active' }).catch((e) => setError(e.message))}
         >
+          {agent.status === 'active' ? <Pause size={16} strokeWidth={1.5} aria-hidden="true" /> : <Play size={16} strokeWidth={1.5} aria-hidden="true" />}
           {agent.status === 'active' ? 'Pause agent' : 'Resume agent'}
         </button>
       </div>
-      <dl className="row small">
-        <dt className="col-4">Wallet</dt><dd className="col-8 font-monospace text-break">{agent.walletAddress}</dd>
-        <dt className="col-4">Status</dt><dd className="col-8">{agent.status}</dd>
-        <dt className="col-4">USDC float</dt><dd className="col-8">{usd(agent.usdcBalance)}</dd>
+      <dl className="facts">
+        <dt>Wallet</dt><dd className="font-monospace text-break">{agent.walletAddress}</dd>
+        <dt>Status</dt><dd><StateChip state={agent.status === 'active' ? 'confirmed' : 'waited'} label={agent.status} /></dd>
+        <dt>USDC float</dt><dd className="tnum">{usd(agent.usdcBalance)}</dd>
       </dl>
-      {error && <div className="alert alert-danger">{error}</div>}
-      {saved && <div className="alert alert-success">Saved.</div>}
-      <h2 className="h5">Limits</h2>
-      <AgentForm key={agent.updatedAt ?? 'a'} initial={agent} submitLabel="Save" onSubmit={patch} />
-      <h2 className="h5 mt-5">Refills and decisions</h2>
+      {error && <div className="alert alert-danger mt-3">{error}</div>}
+      {saved && <div className="alert alert-success mt-3">Saved</div>}
+      <div className="block-head"><h2 className="block-title">Limits</h2></div>
+      <div className="panel">
+        <AgentForm key={agent.updatedAt ?? 'a'} initial={agent} submitLabel="Save" onSubmit={patch} />
+      </div>
+      <div className="block-head"><h2 className="block-title">Refills and decisions</h2></div>
       <Receipts agentId={agent.id} />
     </div>
   );

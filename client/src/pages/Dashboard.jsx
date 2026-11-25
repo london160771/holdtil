@@ -5,23 +5,32 @@ import { usd, tokenAmount, short } from '../format.js';
 import GrantPermission from '../components/GrantPermission.jsx';
 import AgentForm from '../components/AgentForm.jsx';
 import { revokePermission } from '../wallet.js';
+import { Plus, Play, OctagonX } from 'lucide-react';
+import { HoldGlyph } from '../components/Brand.jsx';
 
 function FloatBar({ agent }) {
   if (agent.usdcBalance === undefined || agent.usdcBalance === 'unavailable') {
-    return <div className="small text-body-secondary">USDC float: unavailable</div>;
+    return <div className="float-top"><span>USDC float</span><span>unavailable</span></div>;
   }
   const bal = BigInt(agent.usdcBalance);
   const target = BigInt(agent.targetUsdc);
+  const floor = BigInt(agent.floorUsdc);
   const pct = target > 0n ? Number((bal * 100n) / target) : 0;
-  const low = bal < BigInt(agent.floorUsdc);
+  const floorPct = target > 0n ? Number((floor * 100n) / target) : 0;
+  const low = bal < floor;
   return (
     <div>
-      <div className="d-flex justify-content-between small">
-        <span>USDC float {usd(agent.usdcBalance)}</span>
-        <span className="text-body-secondary">floor {usd(agent.floorUsdc)} · target {usd(agent.targetUsdc)}</span>
+      <div className="float-top">
+        <span>USDC float</span>
+        <span className="float-figure">{usd(agent.usdcBalance)}</span>
       </div>
-      <div className="progress mt-1" role="progressbar" aria-label="USDC float" aria-valuenow={Math.min(pct, 100)} aria-valuemin={0} aria-valuemax={100} style={{ height: 8 }}>
-        <div className={`progress-bar ${low ? 'bg-warning' : 'bg-success'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+      <div className="float-track" role="progressbar" aria-label="USDC float" aria-valuenow={Math.min(pct, 100)} aria-valuemin={0} aria-valuemax={100}>
+        <div className={`float-fill ${low ? 'is-low' : ''}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+        {floorPct > 0 && floorPct < 100 && <div className="float-floor" style={{ left: `${floorPct}%` }} title="Refill floor" />}
+      </div>
+      <div className="float-scale">
+        <span>floor {usd(agent.floorUsdc)}</span>
+        <span>target {usd(agent.targetUsdc)}</span>
       </div>
     </div>
   );
@@ -79,13 +88,19 @@ export default function Dashboard({ me, reload }) {
 
   return (
     <div>
-      <div className="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
-        <h1 className="h3 mb-0">Dashboard</h1>
+      <div className="page-head">
+        <h1 className="page-title">Dashboard</h1>
         <button type="button" className={`btn ${me.user.stopped ? 'btn-success' : 'btn-danger'}`} onClick={toggleStop}>
+          {me.user.stopped ? <Play size={16} strokeWidth={1.5} aria-hidden="true" /> : <OctagonX size={16} strokeWidth={1.5} aria-hidden="true" />}
           {me.user.stopped ? 'Resume all' : 'Stop all'}
         </button>
       </div>
-      {me.user.stopped && <div className="alert alert-warning">All agents are stopped. Holdtil will not sell anything until you resume.</div>}
+      {me.user.stopped && (
+        <div className="alert alert-warning stop-banner">
+          <HoldGlyph size={12} />
+          All agents are stopped. Holdtil will not sell anything until you resume.
+        </div>
+      )}
       {error && (
         <div className="alert alert-danger d-flex flex-wrap gap-2 align-items-center justify-content-between">
           <span>{error}</span>
@@ -97,17 +112,20 @@ export default function Dashboard({ me, reload }) {
         </div>
       )}
 
-      <div className="row g-3 mb-4">
-        <div className="col-6 col-md-4"><div className="card card-body"><div className="small text-body-secondary">Agents</div><div className="fs-4">{me.totals.agents}</div></div></div>
-        <div className="col-6 col-md-4"><div className="card card-body"><div className="small text-body-secondary">Refilled today</div><div className="fs-4">{usd(me.totals.spentTodayUsdc)}</div><div className="small text-body-secondary">limit {usd(me.user.dailyLimitUsdc)}</div></div></div>
+      <div className="stats stats-3">
+        <div className="stat"><div className="stat-label">Agents</div><div className="stat-figure">{me.totals.agents}</div></div>
+        <div className="stat stat-key"><div className="stat-label">Refilled today</div><div className="stat-figure">{usd(me.totals.spentTodayUsdc)}</div><div className="stat-note">of {usd(me.user.dailyLimitUsdc)} daily limit</div></div>
+        <div className="stat"><div className="stat-label">Account</div><div className="stat-figure is-mono">{short(me.user.address)}</div><div className="stat-note">{me.user.stopped ? 'Stopped' : 'Running'}</div></div>
       </div>
 
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <h2 className="h5 mb-0">Agents</h2>
-        <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setShowAdd((v) => !v)}>{showAdd ? 'Cancel' : 'Add agent'}</button>
+      <div className="block-head">
+        <h2 className="block-title">Agents</h2>
+        <button type="button" className="btn btn-sm btn-quiet" onClick={() => setShowAdd((v) => !v)}>
+          {showAdd ? 'Cancel' : <><Plus size={16} strokeWidth={1.5} aria-hidden="true" /> Add agent</>}
+        </button>
       </div>
       {showAdd && (
-        <div className="card card-body mb-3">
+        <div className="panel mb-3">
           <AgentForm
             submitLabel="Add agent"
             onSubmit={async (body) => {
@@ -119,50 +137,55 @@ export default function Dashboard({ me, reload }) {
         </div>
       )}
       {agents === null ? (
-        <p className="text-body-secondary">{loadFailed ? 'Agents unavailable.' : 'Loading…'}</p>
+        <p className="text-secondary">{loadFailed ? 'Agents unavailable.' : 'Loading…'}</p>
       ) : agents.length === 0 ? (
-        <p className="text-body-secondary">No agents yet.</p>
+        <p className="empty">No agents yet. Add the wallet your agent pays from.</p>
       ) : (
-        <div className="vstack gap-2 mb-4">
+        <div className="agent-list">
           {agents.map((a) => (
-            <Link key={a.id} to={`/app/agents/${a.id}`} className="card card-body text-decoration-none text-body">
-              <div className="d-flex justify-content-between mb-2">
-                <strong>{a.name}</strong>
-                <span className={`badge ${a.status === 'active' ? 'text-bg-success' : 'text-bg-secondary'}`}>{a.status}</span>
+            <Link key={a.id} to={`/app/agents/${a.id}`} className="agent-card">
+              <div className="agent-card-head">
+                <span className="agent-name">{a.name}</span>
+                <span className={`chip ${a.status === 'active' ? 'chip-ok' : 'chip-muted'}`}>
+                  {a.status === 'active' ? <span className="chip-dot" /> : <HoldGlyph size={10} />}
+                  {a.status}
+                </span>
               </div>
-              <div className="small text-body-secondary font-monospace mb-2">{short(a.walletAddress)}</div>
+              <div className="agent-wallet">{short(a.walletAddress)}</div>
               <FloatBar agent={a} />
             </Link>
           ))}
         </div>
       )}
 
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <h2 className="h5 mb-0">Spend permissions</h2>
-        <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setShowGrant((v) => !v)}>{showGrant ? 'Cancel' : 'New permission'}</button>
+      <div className="block-head">
+        <h2 className="block-title">Spend permissions</h2>
+        <button type="button" className="btn btn-sm btn-quiet" onClick={() => setShowGrant((v) => !v)}>
+          {showGrant ? 'Cancel' : <><Plus size={16} strokeWidth={1.5} aria-hidden="true" /> New permission</>}
+        </button>
       </div>
       {showGrant && (
-        <div className="card card-body mb-3">
+        <div className="panel mb-3">
           <GrantPermission me={me} onDone={async () => { setShowGrant(false); await load(); }} />
         </div>
       )}
       {perms === null ? (
-        <p className="text-body-secondary">{loadFailed ? 'Permissions unavailable.' : 'Loading…'}</p>
+        <p className="text-secondary">{loadFailed ? 'Permissions unavailable.' : 'Loading…'}</p>
       ) : perms.length === 0 ? (
-        <p className="text-body-secondary">No permission yet. Holdtil cannot refill anything until you sign one.</p>
+        <p className="empty">No permission yet. Holdtil cannot refill anything until you sign one.</p>
       ) : (
-        <div className="table-responsive">
-          <table className="table table-sm align-middle">
-            <thead><tr><th>Stock</th><th>Per day</th><th>Left today</th><th>Status</th><th></th></tr></thead>
+        <div className="table-wrap table-responsive">
+          <table className="table align-middle">
+            <thead><tr><th>Stock</th><th>Per day</th><th>Left today</th><th>Status</th><th><span className="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
               {perms.map((p) => {
                 const d = DECIMALS(me, p.symbol);
                 return (
                   <tr key={p.permissionHash}>
-                    <td>{p.symbol}</td>
-                    <td>{d === undefined ? 'unavailable' : tokenAmount(p.allowance, d, '')}</td>
-                    <td>{d === undefined ? 'unavailable' : tokenAmount(p.remaining, d, '')}</td>
-                    <td>{p.status}</td>
+                    <td className="fw-medium">{p.symbol}</td>
+                    <td className="font-monospace">{d === undefined ? 'unavailable' : tokenAmount(p.allowance, d, '')}</td>
+                    <td className="font-monospace">{d === undefined ? 'unavailable' : tokenAmount(p.remaining, d, '')}</td>
+                    <td><span className={`chip ${p.status === 'active' ? 'chip-ok' : 'chip-muted'}`}><span className="chip-dot" />{p.status}</span></td>
                     <td className="text-end">
                       {p.status === 'active' && (
                         <button type="button" className="btn btn-sm btn-outline-danger" disabled={revoking === p.permissionHash} onClick={() => revoke(p)}>
