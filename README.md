@@ -1,8 +1,18 @@
 # Holdtil
 
-**Your agent's budget stays invested until it pays.**
+**Your agent's budget should be working, even when it's not spending.**
 
-AI agents now pay their own bills: data, tools and APIs, one small USDC payment at a time (x402). So their owners keep a pile of USDC sitting in the agent's wallet, doing nothing. Holdtil lets you keep that budget in **tokenized stock on Base** (NVDAc, tokenized NVIDIA) in **your own wallet**, and only turns a small piece into USDC when the agent is about to run out. It sells **only at a fair price and only inside the limits you sign**. If the price looks wrong, it waits.
+AI agents are starting to pay for their own data, tools, and APIs through small USDC payments using x402. But there's a catch: their owners have to keep USDC sitting in agent wallets, waiting to be spent.
+
+Holdtil changes that.
+
+Instead of leaving your agent's entire budget idle in USDC, you can keep it invested in tokenized stocks on Base, like NVDAc (tokenized NVIDIA), right in your own wallet.
+
+When your agent needs funds, Holdtil converts only the amount required into USDC, at a fair price and within the limits you've approved.
+
+If the price isn't right, it waits.
+
+Your agent gets the liquidity it needs. Your capital gets the chance to keep working.
 
 [Live app](#) (link after deploy) · [Docs](client/src/pages/Docs.jsx) (`/docs`) · [Live proof](#) (`/proof`) · Demo video (soon)
 

@@ -116,10 +116,10 @@ export default function Landing({ onSignedIn }) {
     <div className="landing">
       <section className="hero">
         <div className="hero-copy enter">
-          <h1 className="hero-title">Your agent&apos;s budget stays invested until it pays.</h1>
+          <h1 className="hero-title">Your agent&apos;s budget should be working, even when it&apos;s not spending.</h1>
           <p className="hero-sub">
-            Keep your AI agent&apos;s budget in tokenized stocks on Base. When the agent&apos;s USDC runs low, Holdtil sells a small amount of stock and tops it up,
-            but only at a fair price and only inside your limits.
+            Keep your AI agent&apos;s budget in tokenized stocks like NVDAc, right in your own Base wallet. Holdtil converts only what the agent needs into
+            USDC, at a fair price and within the limits you&apos;ve approved. If the price isn&apos;t right, it waits.
           </p>
           <div className="hero-actions">
             <button type="button" className="btn btn-ink btn-lg" onClick={signIn} disabled={busy}>
@@ -150,7 +150,9 @@ export default function Landing({ onSignedIn }) {
       <section className="section">
         <div className="section-head">
           <h2 className="section-title">How it works</h2>
-          <p className="section-sub">The stock ticker printed every trade. Holdtil prints every decision, including the ones where it chose to wait.</p>
+          <p className="section-sub">
+            Agents pay for data, tools and APIs in small USDC payments over x402, so their owners keep USDC sitting idle in agent wallets. Holdtil changes that.
+          </p>
         </div>
         <ol ref={flowRef} className="flow reveal">
           {FLOW.map(([Icon, title, text], i) => (
@@ -182,6 +184,10 @@ export default function Landing({ onSignedIn }) {
             ))}
           </ul>
         </div>
+      </section>
+
+      <section className="section closing">
+        <p className="closing-line">Your agent gets the liquidity it needs. Your capital gets the chance to keep working.</p>
       </section>
 
       <section className="section risks">

@@ -179,6 +179,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 
 - **2026-11-25 — README rewrite + first-time guide (owner request).** README now covers: the problem, who needs it, where the money sits (stock balance in the owner's Base Account vs USDC float in the agent wallet, with a worked refill), features, a new-user guide, day-to-day use, adding a real agent (and the live-list rollout limit), accounts (one Base Account per user, data scoped per user), security (can / cannot), security proof (mainnet txs, break-it tests, fork tests, reviews), why Base, tech stack. `/docs` gets "First time here", "Where your money sits" and a rollout FAQ. No code logic changed. verify pass (180 server, 11 scout).
 
+- **2026-11-25 — New opening copy (owner wrote it).** README intro and landing hero now lead with "Your agent's budget should be working, even when it's not spending." Landing: hero sub, "How it works" intro, and a closing line before Risks. Tagline "budget stays invested until it pays" stays for the page description and X bio.
+
 ## 11. Manual tasks (owner)
 
 Status: ⬜ to do · ✅ done
