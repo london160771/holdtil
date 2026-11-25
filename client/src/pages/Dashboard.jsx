@@ -32,6 +32,7 @@ export default function Dashboard({ me, reload }) {
   const [agents, setAgents] = useState(null);
   const [perms, setPerms] = useState(null);
   const [error, setError] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [showGrant, setShowGrant] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -40,8 +41,11 @@ export default function Dashboard({ me, reload }) {
       const [a, p] = await Promise.all([api('/v1/agents'), api('/v1/permissions')]);
       setAgents(a.agents);
       setPerms(p.permissions);
+      setLoadFailed(false);
+      setError(null);
     } catch (e) {
       setError(e.message);
+      setLoadFailed(true);
     }
   }, []);
   useEffect(() => {
@@ -67,7 +71,16 @@ export default function Dashboard({ me, reload }) {
         </button>
       </div>
       {me.user.stopped && <div className="alert alert-warning">All agents are stopped. Holdtil will not sell anything until you resume.</div>}
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="alert alert-danger d-flex flex-wrap gap-2 align-items-center justify-content-between">
+          <span>{error}</span>
+          {loadFailed && (
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={load}>
+              Try again
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="row g-3 mb-4">
         <div className="col-6 col-md-4"><div className="card card-body"><div className="small text-body-secondary">Agents</div><div className="fs-4">{me.totals.agents}</div></div></div>
@@ -91,7 +104,7 @@ export default function Dashboard({ me, reload }) {
         </div>
       )}
       {agents === null ? (
-        <p className="text-body-secondary">Loading…</p>
+        <p className="text-body-secondary">{loadFailed ? 'Agents unavailable.' : 'Loading…'}</p>
       ) : agents.length === 0 ? (
         <p className="text-body-secondary">No agents yet.</p>
       ) : (
@@ -119,7 +132,7 @@ export default function Dashboard({ me, reload }) {
         </div>
       )}
       {perms === null ? (
-        <p className="text-body-secondary">Loading…</p>
+        <p className="text-body-secondary">{loadFailed ? 'Permissions unavailable.' : 'Loading…'}</p>
       ) : perms.length === 0 ? (
         <p className="text-body-secondary">No permission yet. Holdtil cannot refill anything until you sign one.</p>
       ) : (
