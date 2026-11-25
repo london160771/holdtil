@@ -8,7 +8,7 @@ Stated plainly. The UI banner always shows **`REAL · BASE MAINNET`**. There is 
 | Spend Permissions | Signing + live status read from chain built; signed by the owner's real Base Account (2026-11-25). Nothing is spent until Phase 3 | API + fork tests; owner check |
 | Refills (stock → USDC → agent wallet) | Real, Base mainnet. Live for the owner's account only ($1 cap, rollout step 4); everyone else dry run | [first refill](https://basescan.org/tx/0x576245f2149007aeafc3fdc32efd2982d6fd24ae1cca4e4e72b470d75aa58655) |
 | Receipts and decisions | Real, from DB (`/v1/refills`, agent page) | API tests |
-| Holdtil Scout x402 payments | Real, Base mainnet (planned) | [tx hashes] |
+| Holdtil Scout x402 payments | Built (dry by default); no real payment yet — needs the owner's approval | tests; tx hash after the first approved run |
 | Fork tests | Simulations on real Base mainnet state (`eth_simulateV1`), throwaway wallets, nothing broadcast | test output; never shown as product data |
 | Gate 0 checks (2026-11-24) | Real mainnet reads + simulations + x402 dry run from an empty wallet; no transaction sent | `docs/gate0/2026-11-24-gate0-report.json` |
 

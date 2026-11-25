@@ -16,6 +16,8 @@ export async function ensureIndexes(db) {
   await db.collection('nonces').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'nonce_ttl' });
   await db.collection('sessions').createIndex({ tokenHash: 1 }, { unique: true, name: 'token_unique' });
   await db.collection('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'session_ttl' });
+  await db.collection('scoutRuns').createIndex({ runId: 1 }, { unique: true, name: 'runId_unique' });
+  await db.collection('scoutRuns').createIndex({ createdAt: -1 }, { name: 'recent' });
   await ensureRefillIndexes(db);
 }
 

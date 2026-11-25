@@ -9,10 +9,24 @@
 
 ## 1. Right now
 
-- **Active phase:** Phase 4 — Holdtil Scout + proof page (started 2026-11-25).
-- **Status:** Building. Phase 3 done: first real refill confirmed on Base mainnet (see §6).
-- **Next step:** Scout x402 client + `/proof` page.
-- **Blocked by:** nothing yet. Known upcoming stop: Scout wallet key + funding, and the owner approves Scout's first real x402 payment.
+- **Active phase:** Phase 4 — Holdtil Scout + proof page: built (dry by default).
+- **Status:** Stopped (CLAUDE.md §10 items 1 and 3): Scout needs its own wallet, and its first real x402 payment needs the owner.
+- **Next step:** owner does P4-STOP below.
+- **Blocked by:** P4-STOP.
+
+**P4-STOP — give Scout a wallet, refill it with Holdtil, approve its first real payment**
+- *What and why:* Scout is our own agent that pays x402stock.xyz ($0.03 a call) for market data. It needs its own wallet, and Holdtil should refill that wallet from your NVDAc like any agent. Its first real payment needs your approval.
+- *Steps (on your computer, in the repo folder):*
+  1. `git pull`, then `npm install`.
+  2. Copy `scout/.env.example` to `scout/.env`. Set `MONGODB_URI` to the same value as in `server/.env`.
+  3. Run `npm run scout:new-key`. It saves a new key in `scout/.env` and prints only **Scout's address**. Never paste the key anywhere.
+  4. In `server/.env` set `SCOUT_ADDRESS=` that address (public, not a secret).
+  5. `npm run dev`, open http://localhost:5173/app → **Add agent**: name `Holdtil Scout`, wallet = Scout's address, limits empty (defaults).
+  6. Refill Scout once (same as before): set `EXECUTOR_MODE=live` in `server/.env`, run `npm run tick` once, then set `EXECUTOR_MODE=` empty again. Expect `"result": "confirmed"` for the Scout agent (~$1 USDC, within your 0.01 NVDAc/day permission; if today's allowance is used up it says `allowance_exhausted` — then do this step tomorrow).
+  7. Dry run Scout: `npm run scout`. Expect `"status": "dry_run"` and `"wouldPayAtomic": "30000"` ($0.03).
+  8. **Your approval of Scout's first real payment:** set `SCOUT_MODE=live` in `scout/.env`, run `npm run scout` **once**.
+- *How to check it worked:* step 8 prints `"status": "paid"` with an `x402TxHash`. Open http://localhost:5173/proof: Scout's payment and its refill both show with BaseScan links. Paste both tx hashes in the thread.
+- *What happens next:* Claude verifies both on chain, records them, and starts Phase 5 (polish + launch; that includes your deploy guide so `/proof` and Scout run 24/7).
 
 ## 2. Phase tracker
 
@@ -22,7 +36,7 @@
 | 1 — Core engine | Done | 2026-11-24 | `91ab9a5` + review fixes (see §10) | A done; 9 findings fixed or carried to Phase 3 |
 | 2 — Accounts, agents, permissions | Done (owner check passed 2026-11-25) | 2026-11-25 | `7628b7b` + fixes `1358c71`, `34547ab` | — |
 | 3 — Refill executor | Done (first real refill confirmed) | 2026-11-25 | `27db5e8` + fixes to `7854cd1` | B done |
-| 4 — Holdtil Scout + proof page | In progress | | | — |
+| 4 — Holdtil Scout + proof page | Built (dry); owner steps pending (P4-STOP) | 2026-11-25 | see §10 | — |
 | 5 — Product polish + launch | Not started | | | C |
 | 6 — Video, X post, submission | Not started | | | — |
 | 7 — P1 extras | Not started | | | — |
@@ -31,7 +45,7 @@
 
 | Check | Command | Result | Date |
 |---|---|---|---|
-| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 159 server tests (15 files), client build ok | 2026-11-25 |
+| Full gate | `npm run verify` | pass (exit 0): lint 0 warnings, 162 server tests (16 files), 8 scout tests, client build ok | 2026-11-25 |
 | Fork tests | `npm run test:fork` | 18 passed (4 files), incl. executor batch with the real CDP spender: 0.00682772 NVDAc → 1.005479 USDC to agent, min-out 1.000451, gas 413,062 (simulation) | 2026-11-25 |
 | Real dry-run tick | `runTick` dry, in-memory DB, real RPC + CDP spender, throwaway unfunded user | real price (gap 4 bps), planned → checked → waited `simulation_failed` (user had no NVDAc), nothing sent | 2026-11-25 |
 | UI | Playwright screenshots (API mocked for layout only) | agent page with receipts at 1280 and 390: no horizontal scroll | 2026-11-25 |
@@ -109,6 +123,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Owner live tick #1:** `skipped refill_in_flight`, nothing sent (checked on chain: spender still 0.0005 ETH and undeployed, owner NVDAc 0.02065741 unchanged, agent USDC 0). Cause: the dry run and the live run were in the same 5-minute window and shared the refill id. Fix: id includes the mode; clearer skip reason. 2 regression tests; verify pass (156).
 - **2026-11-25 — Owner live tick #2:** `waited price_stale` "reference time is in the future", nothing sent (checked on chain). Cause: block time read before the feed; the RPC served the feed from a newer block. Fix: up to 30 s of future skew counts as fresh. 3 tests; verify pass (159).
 - **2026-11-25 — Phase 3 done. First real refill confirmed** (owner-approved, rollout step 4): tx `0x576245f2149007aeafc3fdc32efd2982d6fd24ae1cca4e4e72b470d75aa58655`. Verified on chain: user op success; 0.00665098 NVDAc pulled from `0x406b…4c56`; 0.988785 USDC to agent `0xbAbD…7589` ≥ min-out 0.983841; swap recipient = DB agent wallet; spender deployed in the same op, left with 0 NVDAc / 0 USDC; gas 0.00000739 ETH. Acceptance (PRD §27): lab #1–7 tests pass + one real refill with receipt. Next: Phase 4.
+- **2026-11-25 — Phase 4 built (dry).** Files: `scout/src/{scout,main}.js`, `scout/scripts/new-key.js`, `scout/test/scout.test.js` (8), `scout/.env.example`, `server/src/routes/proof.js`, `server/test/api/proof.test.js` (3), `server/src/{app,config/env,db/index}.js`, `client/src/pages/Proof.jsx`, `client/src/App.jsx`. Tests: verify pass (162 server + 8 scout). Screens: `/proof` at 1280 and 390, no horizontal scroll (API mocked for layout). Tx hashes: none. Env (names): `SCOUT_PRIVATE_KEY`, `SCOUT_MODE`, `SCOUT_DAILY_MAX_USDC`, `SCOUT_INTERVAL_MIN` (scout/.env), `SCOUT_ADDRESS` (server/.env). Limits: no real Scout payment yet; Scout runs only on the owner's PC until deploy (Phase 5). Next: P4-STOP.
 
 ## 11. Manual tasks (owner)
 

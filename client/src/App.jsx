@@ -6,6 +6,7 @@ import Landing from './pages/Landing.jsx';
 import Start from './pages/Start.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Agent from './pages/Agent.jsx';
+import Proof from './pages/Proof.jsx';
 
 export function Notices() {
   return (
@@ -39,6 +40,8 @@ function Header({ me, onSignOut }) {
         <Link to={me?.user ? '/app' : '/'} className="fw-bold text-decoration-none text-body fs-5">
           Holdtil
         </Link>
+        <div className="d-flex align-items-center gap-2">
+          <Link to="/proof" className="small">Live proof</Link>
         {me?.user && (
           <div className="d-flex align-items-center gap-2">
             <span className="small text-body-secondary d-none d-sm-inline">{short(me.user.address)}</span>
@@ -47,6 +50,7 @@ function Header({ me, onSignOut }) {
             </button>
           </div>
         )}
+        </div>
       </nav>
     </header>
   );
@@ -78,6 +82,7 @@ function Shell() {
           <Route path="/start" element={gate(<Start me={me} reload={reload} />)} />
           <Route path="/app" element={gate(me?.user?.onboarded === false ? <Navigate to="/start" replace /> : <Dashboard me={me} reload={reload} />)} />
           <Route path="/app/agents/:id" element={gate(<Agent />)} />
+          <Route path="/proof" element={<Proof />} />
           <Route path="*" element={<p>Page not found. <Link to="/">Go home</Link></p>} />
         </Routes>
       </main>

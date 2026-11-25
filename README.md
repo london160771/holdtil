@@ -40,6 +40,8 @@ npm install
 npm run dev        # API on :3001, app on :5173
 npm run verify     # lint + tests + build
 npm run test:fork  # checks against real Base mainnet state (simulation only, sends nothing)
+npm run tick       # one refill tick (dry unless EXECUTOR_MODE=live)
+npm run scout      # one Holdtil Scout run (dry unless SCOUT_MODE=live)
 ```
 
 ## Known limits

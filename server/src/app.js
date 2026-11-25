@@ -8,6 +8,7 @@ import { agentRoutes } from './routes/agents.js';
 import { permissionRoutes } from './routes/permissions.js';
 import { refillRoutes } from './routes/refills.js';
 import { tickRoutes } from './routes/tick.js';
+import { proofRoutes } from './routes/proof.js';
 import { readBalance } from './chain/balances.js';
 import { permissionHash, readPermissionStatus, verifyPermissionSignature } from './chain/spendPermission.js';
 
@@ -52,6 +53,7 @@ export function createApp({ db, config, chain, executorChain } = {}) {
     app.use('/v1/agents', agentRoutes({ db, chain }));
     app.use('/v1/permissions', permissionRoutes({ db, config, chain }));
     app.use('/v1/refills', refillRoutes({ db }));
+    app.use('/v1/proof', proofRoutes({ db, config, chain }));
     app.use('/internal', tickRoutes({ db, config, executorChain }));
   }
 

@@ -42,6 +42,8 @@ npm run lint           # zero warnings
 npm run build          # production build (client)
 npm run verify         # lint + test + build — the gate
 npm run tick           # one executor tick by hand (reads server/.env; dry unless EXECUTOR_MODE=live)
+npm run scout          # one Holdtil Scout run (reads scout/.env; dry unless SCOUT_MODE=live)
+npm run scout:new-key  # create Scout's wallet key in scout/.env (prints the address only)
 ```
 
 ## 5. Scope
