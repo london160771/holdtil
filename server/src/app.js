@@ -9,6 +9,7 @@ import { permissionRoutes } from './routes/permissions.js';
 import { refillRoutes } from './routes/refills.js';
 import { tickRoutes } from './routes/tick.js';
 import { proofRoutes } from './routes/proof.js';
+import { rateLimit } from './rateLimit.js';
 import { readBalance } from './chain/balances.js';
 import { permissionHash, readPermissionStatus, verifyPermissionSignature } from './chain/spendPermission.js';
 
@@ -48,6 +49,13 @@ export function createApp({ db, config, chain, executorChain } = {}) {
   });
 
   if (db) {
+    // PRD §12: rate limits on auth and write endpoints (per IP, per minute). Tests can loosen them via config.
+    const limits = config?.rateLimits ?? {};
+    const write = ['POST', 'PATCH', 'PUT', 'DELETE'];
+    app.use('/v1/auth', rateLimit({ windowMs: 60_000, max: limits.auth ?? 20 }));
+    app.use('/v1', rateLimit({ windowMs: 60_000, max: limits.write ?? 30, methods: write }));
+    app.use('/v1/proof', rateLimit({ windowMs: 60_000, max: limits.proof ?? 60 }));
+    app.use('/internal', rateLimit({ windowMs: 60_000, max: limits.internal ?? 10 }));
     app.use('/v1/auth', authRoutes({ db, config, chain }));
     app.use('/v1/me', meRoutes({ db, config }));
     app.use('/v1/agents', agentRoutes({ db, chain }));

@@ -12,7 +12,7 @@
 - **Active phase:** Phase 4 — Holdtil Scout + proof page: built (dry by default).
 - **Status:** Stopped (CLAUDE.md §10 items 1 and 3): Scout needs its own wallet, and its first real x402 payment needs the owner.
 - **Next step:** owner does P4-STOP below.
-- **Blocked by:** P4-STOP. Steps 1–5 done. Step 6 on 2026-11-25 refilled Test Agent again (tx `0x062d974c…c815`) and used up today's 0.01 NVDAc, so Scout got `allowance_exhausted`. The executor now refills the emptiest agent first. **Redo step 6 on 2026-11-26** (after the daily period resets), then steps 7–8.
+- **Blocked by:** P4-STOP. Steps 1–5 done. Step 6 on 2026-11-25 refilled Test Agent again (tx `0x062d974c…c815`) and used up today's 0.01 NVDAc, so Scout got `allowance_exhausted`. The executor now refills the emptiest agent first. Instead of waiting, the owner sent 0.1 USDC to Scout by hand (2026-11-25; Scout balance read on chain: 100000 = $0.10), so **Scout's first payment is funded manually, not by a Holdtil refill**. Owner now does steps 7–8. Step 6 (a Holdtil refill of Scout) runs again on 2026-11-26.
 
 **P4-STOP — give Scout a wallet, refill it with Holdtil, approve its first real payment**
 - *What and why:* Scout is our own agent that pays x402stock.xyz ($0.03 a call) for market data. It needs its own wallet, and Holdtil should refill that wallet from your NVDAc like any agent. Its first real payment needs your approval.
@@ -78,6 +78,7 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 | Paid | 0.988785 USDC from the Aerodrome pool to agent `0xbAbD…7589` (min-out 0.983841, deadline set) | Transfer logs + decoded user op |
 | Gas | 0.00000739 ETH from the spender (incl. first-time smart account deploy); no paymaster | spender balance 0.0005 → 0.00049261 ETH |
 | Spender after | holds 0 NVDAc, 0 USDC (never user money) | balances read on chain |
+| Scout first funding | 0.1 USDC sent by the owner by hand (not a Holdtil refill) to Scout `0x6E69…8001`; balance 100000 read on chain | on chain by Claude 2026-11-25 |
 | Second real refill | [`0x062d974c…`](https://basescan.org/tx/0x062d974c2c4c3ef32b5d86046ca08a426828f19f29bbc89eb3e0cd1506fbc815) · block 62086750 · 2026-11-25 11:55:25 UTC · 0.00334870 NVDAc → 0.494924 USDC to Test Agent `0xbAbD…7589` (rest of the day's allowance) · user op success, gas 0.0000030 ETH | on chain by Claude 2026-11-25 |
 
 ## 7. Demo recordings (PRD §22)
@@ -127,6 +128,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Phase 4 built (dry).** Files: `scout/src/{scout,main}.js`, `scout/scripts/new-key.js`, `scout/test/scout.test.js` (8), `scout/.env.example`, `server/src/routes/proof.js`, `server/test/api/proof.test.js` (3), `server/src/{app,config/env,db/index}.js`, `client/src/pages/Proof.jsx`, `client/src/App.jsx`. Tests: verify pass (162 server + 8 scout). Screens: `/proof` at 1280 and 390, no horizontal scroll (API mocked for layout). Tx hashes: none. Env (names): `SCOUT_PRIVATE_KEY`, `SCOUT_MODE`, `SCOUT_DAILY_MAX_USDC`, `SCOUT_INTERVAL_MIN` (scout/.env), `SCOUT_ADDRESS` (server/.env). Limits: no real Scout payment yet; Scout runs only on the owner's PC until deploy (Phase 5). Next: P4-STOP.
 
 - **2026-11-25 — Refill order fix.** Step 6 live tick: Test Agent (slightly under its $1 floor) took the rest of the day's shared allowance (tx `0x062d974c2c4c3ef32b5d86046ca08a426828f19f29bbc89eb3e0cd1506fbc815`, verified), so Scout ($0) got `allowance_exhausted`. Fix: each tick now orders agents by how far below the floor they are (unreadable balance last); decisions still read balances fresh. +2 tests. Tx: none sent by Claude.
+
+- **2026-11-25 — Phase 5 started.** Rate limits on auth, writes, proof and tick (+3 tests). `/docs` connect guide page (screenshots at 1280px and 390px checked, no sideways scroll). Clear message when the API can't be reached (502/503/504 or network error) instead of "Request failed (502)".
 
 ## 11. Manual tasks (owner)
 

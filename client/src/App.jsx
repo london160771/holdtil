@@ -7,6 +7,7 @@ import Start from './pages/Start.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Agent from './pages/Agent.jsx';
 import Proof from './pages/Proof.jsx';
+import Docs from './pages/Docs.jsx';
 
 export function Notices() {
   return (
@@ -41,6 +42,7 @@ function Header({ me, onSignOut }) {
           Holdtil
         </Link>
         <div className="d-flex align-items-center gap-2">
+          <Link to="/docs" className="small">Connect guide</Link>
           <Link to="/proof" className="small">Live proof</Link>
         {me?.user && (
           <div className="d-flex align-items-center gap-2">
@@ -83,6 +85,7 @@ function Shell() {
           <Route path="/app" element={gate(me?.user?.onboarded === false ? <Navigate to="/start" replace /> : <Dashboard me={me} reload={reload} />)} />
           <Route path="/app/agents/:id" element={gate(<Agent />)} />
           <Route path="/proof" element={<Proof />} />
+          <Route path="/docs" element={<Docs />} />
           <Route path="*" element={<p>Page not found. <Link to="/">Go home</Link></p>} />
         </Routes>
       </main>

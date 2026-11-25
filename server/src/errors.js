@@ -19,6 +19,7 @@ export const CODES = Object.freeze({
   permission_invalid: { retryable: false, nextAction: 'Sign the permission again from your Base Account' },
   chain_unavailable: { retryable: true, nextAction: 'Try again shortly' },
   dry_run: { retryable: true, nextAction: 'Dry run: checks and simulation passed, nothing was sent' },
+  rate_limited: { retryable: true, nextAction: 'Wait a minute and try again' },
   internal_error: { retryable: true, nextAction: 'Try again later' },
 });
 
