@@ -42,7 +42,7 @@ function Header({ me, onSignOut }) {
           Holdtil
         </Link>
         <div className="d-flex align-items-center gap-2">
-          <Link to="/docs" className="small">Connect guide</Link>
+          <Link to="/docs" className="small">Docs</Link>
           <Link to="/proof" className="small">Live proof</Link>
         {me?.user && (
           <div className="d-flex align-items-center gap-2">

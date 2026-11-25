@@ -11,7 +11,9 @@
     "test:fork": "vitest run --config vitest.fork.config.js",
     "gate0": "node scripts/gate0/run-all.js",
     "read-only": "node scripts/read-only.js",
-    "tick": "node --env-file-if-exists=.env scripts/tick.js"
+    "tick": "node --env-file-if-exists=.env scripts/tick.js",
+    "spender": "node --env-file-if-exists=.env scripts/spender.js",
+    "spender:prod": "node --env-file=.env.prod scripts/spender.js"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.4.0",

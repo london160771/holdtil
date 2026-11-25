@@ -23,7 +23,10 @@
     "read-only": "npm run read-only -w server --",
     "tick": "npm run tick -w server",
     "scout": "npm run scout -w scout",
-    "scout:new-key": "npm run new-key -w scout"
+    "scout:new-key": "npm run new-key -w scout",
+    "spender": "npm run spender -w server --",
+    "spender:prod": "npm run spender:prod -w server --",
+    "scout:sweep": "npm run sweep -w scout --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

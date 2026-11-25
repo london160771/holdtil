@@ -1,6 +1,6 @@
 // Base Account SDK: Sign in with Base and Spend Permission requests (PRD §15).
 import { createBaseAccountSDK } from '@base-org/account';
-import { requestSpendPermission } from '@base-org/account/spend-permission';
+import { requestSpendPermission, requestRevoke } from '@base-org/account/spend-permission';
 import { getAddress, stringToHex } from 'viem';
 import { createSiweMessage } from 'viem/siwe';
 import { api } from './api.js';
@@ -63,4 +63,17 @@ export async function grantPermission({ account, spender, token, allowance }) {
     provider: provider(),
   });
   return api('/v1/permissions', { method: 'POST', body: { permission: signed.permission, signature: signed.signature } });
+}
+
+/**
+ * Revokes a spend permission on chain from the user's own Base Account (a wallet popup; the user pays gas).
+ * After this the Spend Permission Manager refuses every spend, so Holdtil can't move any stock.
+ */
+export async function revokePermission(p) {
+  await ensureBase(provider());
+  const permission = {
+    account: p.account, spender: p.spender, token: p.token, allowance: String(p.allowance),
+    period: Number(p.period), start: Number(p.start), end: Number(p.end), salt: String(p.salt), extraData: p.extraData ?? '0x',
+  };
+  return requestRevoke({ provider: provider(), permission: { chainId: BASE_CHAIN_ID, signature: '0x', permission } });
 }

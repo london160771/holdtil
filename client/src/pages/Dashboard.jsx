@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { usd, tokenAmount, short } from '../format.js';
 import GrantPermission from '../components/GrantPermission.jsx';
 import AgentForm from '../components/AgentForm.jsx';
+import { revokePermission } from '../wallet.js';
 
 function FloatBar({ agent }) {
   if (agent.usdcBalance === undefined || agent.usdcBalance === 'unavailable') {
@@ -51,6 +52,20 @@ export default function Dashboard({ me, reload }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const [revoking, setRevoking] = useState(null);
+  const revoke = async (p) => {
+    setError(null);
+    setRevoking(p.permissionHash);
+    try {
+      await revokePermission(p);
+      await load();
+    } catch (e) {
+      setError(e.message || 'The wallet did not revoke');
+    } finally {
+      setRevoking(null);
+    }
+  };
 
   const toggleStop = async () => {
     setError(null);
@@ -138,7 +153,7 @@ export default function Dashboard({ me, reload }) {
       ) : (
         <div className="table-responsive">
           <table className="table table-sm align-middle">
-            <thead><tr><th>Stock</th><th>Per day</th><th>Left today</th><th>Status</th></tr></thead>
+            <thead><tr><th>Stock</th><th>Per day</th><th>Left today</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {perms.map((p) => {
                 const d = DECIMALS(me, p.symbol);
@@ -148,6 +163,13 @@ export default function Dashboard({ me, reload }) {
                     <td>{d === undefined ? 'unavailable' : tokenAmount(p.allowance, d, '')}</td>
                     <td>{d === undefined ? 'unavailable' : tokenAmount(p.remaining, d, '')}</td>
                     <td>{p.status}</td>
+                    <td className="text-end">
+                      {p.status === 'active' && (
+                        <button type="button" className="btn btn-sm btn-outline-danger" disabled={revoking === p.permissionHash} onClick={() => revoke(p)}>
+                          {revoking === p.permissionHash ? 'Waiting…' : 'Revoke'}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

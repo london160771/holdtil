@@ -9,7 +9,8 @@
     "x402:dry": "node scripts/x402-dry-check.js",
     "scout": "node --env-file-if-exists=.env src/main.js",
     "scout:loop": "node --env-file-if-exists=.env src/main.js --loop",
-    "new-key": "node scripts/new-key.js"
+    "new-key": "node scripts/new-key.js",
+    "sweep": "node --env-file-if-exists=.env scripts/sweep.js"
   },
   "dependencies": {
     "@x402/evm": "^2.32.0",
