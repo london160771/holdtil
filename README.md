@@ -6,7 +6,7 @@ AI agents are starting to pay for their own data, tools, and APIs through small 
 
 Holdtil changes that.
 
-Instead of leaving your agent's entire budget idle in USDC, you can keep it invested in tokenized stocks on Base, like NVDAc (tokenized NVIDIA), right in your own wallet.
+Instead of leaving your agent's entire budget idle in USDC, you can keep it invested in tokenized stocks on Base (NVIDIA, Apple, Tesla, Meta, Alphabet or Microsoft), right in your own wallet.
 
 When your agent needs funds, Holdtil converts only the amount required into USDC, at a fair price and within the limits you've approved.
 
@@ -24,7 +24,7 @@ Your agent gets the liquidity it needs. Your capital gets the chance to keep wor
 1. [The problem it solves](#1-the-problem-it-solves)
 2. [Who needs it](#2-who-needs-it)
 3. [Where the money sits: stock balance vs USDC float](#3-where-the-money-sits-stock-balance-vs-usdc-float)
-4. [Features](#4-features)
+4. [Features](#4-features) · [Holdtil for Bankr agents](#holdtil-for-bankr-agents)
 5. [First time here? A guide for new users](#5-first-time-here-a-guide-for-new-users)
 6. [How to use it day to day](#6-how-to-use-it-day-to-day)
 7. [Add your real agent](#7-add-your-real-agent)
@@ -65,7 +65,7 @@ There are two balances, in two different wallets:
 
 | | **Stock balance** | **USDC float** |
 |---|---|---|
-| What | NVDAc (tokenized NVIDIA) | USDC (digital dollars) |
+| What | A tokenized stock you pick per agent: NVDAc, AAPLc, TSLAc, METAc, GOOGLc or MSFTc | USDC (digital dollars) |
 | Where | **Your** Base Account (your smart wallet) | **Your agent's** wallet |
 | Who controls it | You. Holdtil can only use the daily Spend Permission you signed | The agent (it holds its own key) |
 | Size | Most of the budget | Small: between the floor and the target you set |
@@ -78,15 +78,17 @@ There are two balances, in two different wallets:
 1. The agent starts with **$3.00** USDC and pays **$0.03** per data call.
 2. After 67 calls it has **$0.99**. That is below the **$1 floor**, so a refill is due.
 3. Within 5 minutes Holdtil checks the price. Chainlink's reference must be less than 1 hour old, and the exchange price must be within 1% of it.
-4. If both are fine, it takes a small amount of NVDAc from your Base Account (through your Spend Permission), swaps it to USDC with a guaranteed minimum, and sends the USDC to the agent. All of this happens in **one transaction**. The agent is back to about **$2.99**, because one refill is capped at $2.
-5. If the price is old (for example at the weekend) or off by more than 1%, it **waits** and tries again on the next check.
+4. If both are fine, it takes a small amount of stock from your Base Account (through your Spend Permission), swaps it to USDC with a guaranteed minimum, and sends the USDC to the agent. In the same **one transaction** it also sells $0.02 of stock to pay back the gas (you pay your own gas; Holdtil sponsors nothing). The agent is back to about **$2.97**, because one refill, fee included, is capped at $2.
+5. If the price is old (for example at night, at the weekend or on a US holiday) or off by more than 1%, it **waits** and tries again on the next check.
 
-During the current rollout, each real refill is capped at **$1**.
+There is also a site-wide safety cap of **$25** per refill, whatever limits you set.
 
 ## 4. Features
 
+**For you, the owner**
 - **Fair-price guard.** Every sale needs a fresh Chainlink reference price (less than 1 hour old, from the 24/5 feed, so weekends always wait). The exchange quote must be within 1% of it, and the swap has a minimum USDC out that is never below reference − 1%.
-- **Limits you set.** Floor, target, max per refill and a daily limit per agent, plus a daily limit for your whole account. Hard caps stop anyone from setting them too high during rollout.
+- **Six stocks.** NVDAc, AAPLc, TSLAc, METAc, GOOGLc and MSFTc (Coinbase tokenized stocks). Each agent pays from the one you pick, each with its own Chainlink feed and Aerodrome pool.
+- **Limits you set.** Floor, target, max per refill and a daily limit per agent, plus a daily limit for your whole account. Hard caps stop anyone from setting them too high, and a $25 site-wide cap applies to every refill.
 - **Spend Permission, not custody.** You sign a daily allowance in your own Base Account, for example "Holdtil may use up to 0.01 NVDAc per day". You can revoke it any time, from the dashboard or from your wallet.
 - **One destination.** USDC only ever goes to the agent wallet you registered. That address can't be changed later, and the transaction builder refuses any other recipient.
 - **One refill at a time.** The database allows only one refill in flight per agent, so two checks at the same moment can never pay twice.
@@ -94,8 +96,27 @@ During the current rollout, each real refill is capped at **$1**.
 - **Receipts for everything.** Every refill and every wait is printed on the agent page, with the reason, the price gap, the minimum out and a BaseScan link.
 - **Zero code for your agent.** If it pays from its own wallet on Base, it already works. No SDK.
 - **Several agents.** Up to 5 per account. If they share one allowance, the emptiest one is refilled first.
+- **Market hours notice.** The app tells you when the US market is closed and when the next refill window is expected. It is display only: the price guard still decides every sale.
+- **Earned while waiting.** The dashboard shows what your budget earned (or lost) by staying in stock instead of sitting in cash, from stored refills and live Chainlink prices.
+- **Spending log.** Money in (refills) and money out (x402 payments) in one list, each with a BaseScan link.
+- **You pay your own gas.** Each refill sells a small fixed fee ($0.02 by default, never more than $0.05) in the same transaction, to pay back the spender's gas. It counts toward your limits and shows on the receipt. The spender holds only a little ETH, never user money.
 - **Live public proof.** `/proof` shows our own agent, Holdtil Scout, paying for real data and getting refilled on Base mainnet.
-- **Gas paid by Holdtil.** Refills are sent by Holdtil's spender, which holds only a little ETH for gas and never user money.
+
+**For other agents and builders**
+- **Fair-price check, sold over x402 on Bankr.** Any agent can pay $0.01 to ask Holdtil's question before it sells stock: "is the price fresh and fair, and how much should I sell?" It answers `sell` (with amounts and a fair floor) or `wait` (with the reason). Same rule and code as Holdtil's own refills. Hosted on Bankr x402 Cloud (`bankr/x402/fair-price/`).
+- **Holdtil skill for Bankr agents.** A Bankr agent can keep its budget in NVDAc and top up its USDC on demand ("holdtil refill"): it pays the fair-price check, then sells with Bankr's own swap only at or above the fair floor (`bankr/skills/holdtil/`).
+- **Base Builder Codes.** Every refill carries Holdtil's Base Builder Code (ERC-8021), so Base credits the onchain activity to Holdtil.
+
+### Holdtil for Bankr agents
+
+Bankr agents trade from their own Bankr wallet, so Holdtil's spender can't refill them. Instead, Holdtil sells them the one thing that's hard to get right: the decision.
+
+1. The Bankr agent's USDC drops below its floor.
+2. It calls Holdtil's fair-price check on Bankr x402 Cloud and pays $0.01 in USDC.
+3. If the answer is `wait` (market closed, price off), it does nothing.
+4. If the answer is `sell`, it quotes Bankr's swap, and swaps only if the quote is at or above Holdtil's fair floor.
+
+Status: the code and tests are done; the owner deploys the check to Bankr and tests the skill in a real Bankr wallet next.
 
 ## 5. First time here? A guide for new users
 
@@ -103,14 +124,14 @@ This guide is also on the [`/docs`](client/src/pages/Docs.jsx) page, under "Firs
 
 **Before you start, you need:**
 1. **A Base Account.** This is Coinbase's smart wallet on Base. You sign in with it, with no password. If you don't have one, the sign-in window helps you create one.
-2. **Some NVDAc in that Base Account.** This is the stock your agent's budget lives in. See [base.org/stocks](https://www.base.org/stocks) for tokenized stocks on Base. Tokenized stocks are not available to US persons.
+2. **Some tokenized stock in that Base Account.** NVDAc, AAPLc, TSLAc, METAc, GOOGLc or MSFTc. This is where your agent's budget lives. See [base.org/stocks](https://www.base.org/stocks). Tokenized stocks are not available to US persons.
 3. **Your agent's wallet address.** This is the `0x…` address your agent pays from. See [section 7](#7-add-your-real-agent) if you're not sure.
 
 **Then, about five minutes in the app:**
 1. **Sign in with Base.** Open the app and press **Sign in with Base**. Your wallet asks you to sign a message. Signing is free and moves no money.
 2. **Confirm who you are.** Tick "I am not a US person" and accept the risk note.
-3. **Add your agent.** Give it a name and paste its wallet address. Keep the safe default limits or set your own. The address can't be changed later, because that's what keeps your money from going anywhere else.
-4. **Sign a Spend Permission.** Pick the stock and how much Holdtil may use per day (for example 0.01 NVDAc). Your wallet shows exactly what you're signing. Signing moves no money.
+3. **Add your agent.** Give it a name, paste its wallet address and pick the stock it pays from. Keep the safe default limits or set your own. The address can't be changed later, because that's what keeps your money from going anywhere else.
+4. **Sign a Spend Permission** for that stock: how much Holdtil may use per day (for example 0.01 NVDAc). Your wallet shows exactly what you're signing. Signing moves no money. Leave a little room for the $0.02 gas fee.
 5. **Done.** Open the dashboard. You'll see each agent's USDC float, its floor and target, and how much has been refilled today. When the float drops below the floor, the next check (every 5 minutes) refills it if the price is fair.
 
 **How to check it's working:** open the agent's page. Every check that did something shows up there as a refill (with a BaseScan link) or a wait (with the reason, like "Price off, waited").
@@ -139,7 +160,7 @@ This guide is also on the [`/docs`](client/src/pages/Docs.jsx) page, under "Firs
 **Steps:**
 1. Find the agent's wallet address. If it uses viem, that's `privateKeyToAccount(KEY).address`. If it uses a CDP wallet, copy the address from the CDP portal. For x402 clients, it's the account you pass to the payment scheme.
 2. In Holdtil: **Dashboard → Add agent**, then paste the address and set the floor (when to refill) and target (how high to fill).
-3. Make sure you have an active **Spend Permission** with enough NVDAc per day to cover the refills.
+3. Make sure you have an active **Spend Permission** for the agent's stock, with enough per day to cover the refills and their small gas fees.
 4. Send the agent a little USDC to start with, or let the first refill do it once the float is below the floor.
 
 This is exactly how our own agent, Holdtil Scout, pays for market data (see `scout/`):
@@ -182,6 +203,8 @@ await paidFetch('https://example.com/paid-api');
 - Move more than your permission allows. The Spend Permission Manager contract enforces the allowance onchain.
 - Send USDC anywhere else. The recipient comes only from your stored agent record, and the transaction builder refuses tokens, pools, the spender and your own wallet as recipients.
 - Keep going after you stop it. Stop, Pause and Revoke are all re-read right before every send.
+
+**The only other place money can go:** the fixed gas fee (at most $0.05 per refill) goes to Holdtil's fee wallet, set by the owner in server config. The transaction builder refuses a fee wallet that is your wallet, your agent, the spender or any known contract.
 
 **How a sale is protected, in order:**
 1. **Kill switches:** global pause, your Stop, the agent's Pause, and a revoked permission all mean no sale.
@@ -236,10 +259,12 @@ This is the core rule working for real: never sell your stock unless the price i
 | Token decimals onchain differ from config | Nothing is sold |
 | Chain or price unreadable | Nothing is sold (fail closed) |
 | Account not on the live list | Dry run only, nothing sent |
+| Gas fee sale below its minimum, or no fee wallet set | Nothing sent |
+| A typo in the site-wide cap setting | The server refuses to start |
 
-**Fork tests on real Base state.** `npm run test:fork` runs the real refill transaction against Base mainnet with `eth_simulateV1`, using throwaway wallets. It sends nothing.
+**Fork tests on real Base state.** `npm run test:fork` runs the real refill transaction (for all six stocks, with and without the gas fee) against Base mainnet with `eth_simulateV1`, using throwaway wallets. It sends nothing. When the market is closed and the pool has drifted more than 1% from the last Chainlink price, the happy-path cases fail with "Too little received": that is the min-out doing its job, the same reason a live refill waits.
 
-**Independent reviews.** Two fresh-eyes reviews, by agents that didn't write the code, came before any real money: Checkpoint B on the executor, and Checkpoint C, a full security review. Every finding and fix is listed in [PROJECT_STATE.md](PROJECT_STATE.md) §10.
+**Independent reviews.** Fresh-eyes reviews, by agents that didn't write the code, came before any real money: Checkpoint B on the executor, Checkpoint C (a full security review), and a review of live refills for all users with the gas fee. Every finding and fix is listed in [PROJECT_STATE.md](PROJECT_STATE.md) §10.
 
 What's real and what isn't, stated plainly: [REAL_VS_MOCKED.md](REAL_VS_MOCKED.md).
 
@@ -255,13 +280,19 @@ On top of that, Base fees are tiny, so a $1 refill makes sense, and Sign in with
 
 | Base tool | Job in Holdtil | Code |
 |---|---|---|
-| Coinbase tokenized stocks (B20, NVDAc) | The asset sold for refills | `server/src/config/addresses.js` |
+| Coinbase tokenized stocks (B20: NVDAc, AAPLc, TSLAc, METAc, GOOGLc, MSFTc) | The assets sold for refills | `server/src/config/addresses.js` |
 | Base Account + Sign in with Base | Login and permission signing | `client/src/wallet.js`, `server/src/routes/auth.js` |
 | Spend Permissions | Daily limit the user signs and can revoke | `server/src/chain/spendPermission.js` |
-| Chainlink tokenized equity feed | Reference price for the fair-price guard | `server/src/chain/priceFeed.js` |
-| Aerodrome Slipstream | NVDAc → USDC swap with min-out and deadline | `server/src/chain/quote.js`, `server/src/chain/refillBatch.js` |
+| Chainlink tokenized equity feeds | Reference price for the fair-price guard | `server/src/chain/priceFeed.js` |
+| Aerodrome Slipstream | Stock → USDC swaps with min-out and deadline (agent + gas fee) | `server/src/chain/quote.js`, `server/src/chain/refillBatch.js` |
 | CDP smart account | Sends each refill as one ERC-4337 user op; holds gas only | `server/src/chain/spender.js` |
+| Base Builder Codes (ERC-8021) | Attribution suffix on every refill user op | `server/src/chain/builderCode.js` |
 | x402 v2 (`exact`) | How agents pay; Scout pays x402stock.xyz | `scout/src/` |
+
+| Partner | Job in Holdtil | Code |
+|---|---|---|
+| Bankr x402 Cloud | Hosts and sells Holdtil's fair-price check ($0.01 per call) | `bankr/x402/fair-price/` |
+| Bankr skills | Lets Bankr agents refill from stock through the check and Bankr's swap | `bankr/skills/holdtil/` |
 
 ## 12. Tech stack and architecture
 
@@ -271,7 +302,8 @@ On top of that, Base fees are tiny, so a $1 refill makes sense, and Sign in with
 | Wallet | Base Account SDK (`@base-org/account`): Sign in with Base and Spend Permissions |
 | API and executor | Node 22, Express 5, viem 2, MongoDB 7 driver |
 | Sending | Coinbase CDP SDK: a smart account (ERC-4337) as the spender |
-| Onchain | Base mainnet: NVDAc (B20), USDC, Chainlink NVDA/USD feed, Aerodrome Slipstream, Spend Permission Manager |
+| Onchain | Base mainnet: six B20 stocks, USDC, Chainlink feeds, Aerodrome Slipstream, Spend Permission Manager, Builder Codes (`ox/erc8021`) |
+| Partner | Bankr x402 Cloud (TypeScript handler) and Bankr skills |
 | Agent payments | x402 v2: `@x402/fetch` and `@x402/evm` (Holdtil Scout) |
 | Tests | Vitest, in-memory MongoDB, `eth_simulateV1` fork tests on real Base state |
 | Quality | ESLint 10 (zero warnings), `npm run verify` as the gate |
@@ -281,14 +313,16 @@ On top of that, Base fees are tiny, so a $1 refill makes sense, and Sign in with
 Browser (React, Vite)  ──/v1 (same origin)──►  API (Node, Express) ── MongoDB Atlas
   Sign in with Base, sign Spend Permission        │
                                                    ├─ every 5 min (cron) → executor
-User's Base Account (holds NVDAc) ◄── Spend Permission Manager ◄──┤   CDP smart account (spender, gas only)
-Agent wallet ◄── USDC ── Aerodrome Slipstream NVDAc/USDC ◄────────┘   Chainlink NVDA feed (24/5 reference)
+User's Base Account (holds stock) ◄── Spend Permission Manager ◄──┤   CDP smart account (spender, gas only)
+Agent wallet ◄── USDC ── Aerodrome Slipstream stock/USDC ◄────────┤   Chainlink feeds (24/5 reference)
+Fee wallet   ◄── $0.02 USDC gas fee, same transaction ◄──────────┘
 Holdtil Scout (GitHub Actions, hourly) ── x402 ──► x402stock.xyz
+Any agent ── x402 $0.01 ──► Bankr x402 Cloud: Holdtil fair-price check ──► sell / wait
 ```
 
 **Judge path, 60 seconds:**
 1. Open `/proof`: Scout's real x402 payments and the refills that fund them, each with a BaseScan link.
-2. Open the first refill above. It's one user operation: `approveWithSignature` + `spend` (Spend Permission), then `approve` + `exactInputSingle` (Aerodrome) with a min-out, with the USDC going straight to the agent.
+2. Open the first refill above. It's one user operation: `approveWithSignature` + `spend` (Spend Permission), then `approve` + `exactInputSingle` (Aerodrome) with a min-out, with the USDC going straight to the agent. Refills now add a second `exactInputSingle` for the gas fee.
 3. Read `/docs`: the product in plain words, and how any agent connects with zero code.
 4. Run `npm run verify`: the tests block every "break it" case above.
 
@@ -305,12 +339,13 @@ npm run tick       # one refill check (dry unless EXECUTOR_MODE=live)
 npm run scout      # one Holdtil Scout run (dry unless SCOUT_MODE=live)
 ```
 
-Repo map: `server/` is the API and executor, `client/` the web app, `scout/` our x402 agent, and `docs/` the Gate 0 report and guides. Requirements are in [PRD.md](PRD.md), progress in [PROJECT_STATE.md](PROJECT_STATE.md), and future ideas in [ROADMAP.md](ROADMAP.md).
+Repo map: `server/` is the API and executor, `client/` the web app, `scout/` our x402 agent, `bankr/` the fair-price check and skill for Bankr, and `docs/` the Gate 0 report and guides. Requirements are in [PRD.md](PRD.md), progress in [PROJECT_STATE.md](PROJECT_STATE.md), and future ideas in [ROADMAP.md](ROADMAP.md).
 
 ## 14. Known limits
 
-- One stock for now (NVDAc). The NVDAc/USDC pool is small, so refills are small.
-- Real refills are on for the owner's account only ($1 cap) until rollout step 5. Other accounts run as dry runs.
+- Six stocks. Their pools are small, so refills are small. The Bankr check and skill are NVDAc only for now.
+- Real refills are on for the owner's account only until the owner turns them on for everyone (`LIVE_USER_ADDRESSES=*`, after deploy). Until then other accounts run as dry runs.
+- A very small refill still pays the fixed $0.02 gas fee, so keep the floor and target a few dollars apart.
 - At weekends and on market holidays the reference price is stale, so refills wait. Keep enough USDC float to cover a weekend.
 - Your budget is in stock, so its value moves with the stock price.
 - The API runs on Render's free tier, and a timer keeps it and the database awake.
