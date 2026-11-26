@@ -14,6 +14,19 @@
 - **Next step:** Owner: P5-DEPLOY when ready (the owner always deploys). 2026-11-26: P4-STOP step 6 (refill Scout). Claude: Checkpoint C.
 - **Blocked by:** nothing for Claude. Owner steps above.
 
+**P5-BANKR-SKILL — test the Holdtil skill in your Bankr wallet (owner; after P5-BANKR is live)**
+- *What and why:* your Bankr agent keeps its budget in NVDAc and refills its USDC through Holdtil's check and Bankr's own swap. Holdtil never touches the Bankr wallet.
+- *Steps (in Bankr chat at bankr.bot):*
+  1. Log in to bankr.bot (this also renews Bankr's location check for stock trades).
+  2. Bankr → Security: per-transaction limit $2, daily limit $5.
+  3. Put a little NVDAc on Base in the Bankr wallet (e.g. "buy $3 of NVDAc on base") and keep USDC below $1.
+  4. Say: `install the skill at https://github.com/london160771/holdtil/tree/main/bankr/skills/holdtil`
+  5. Say: `holdtil settings: check url <your fair-price URL from P5-BANKR>, floor 1, target 3, max refill 2`
+  6. Dry run: `holdtil refill, but only tell me what you would do, don't swap`. Check it asks Holdtil and quotes, and the numbers look right.
+  7. **Your approval of the first real refill:** `holdtil refill`. On a weekday in US market hours it should sell; nights, weekends and US holidays it should wait.
+- *How to check it worked:* the agent reports the tx hash; the USDC lands in the Bankr wallet; `/proof` lists the check. Paste the tx hash and a screenshot of the chat in the thread.
+- *What happens next:* Claude verifies the swap on chain (amount ≥ fair floor), records it, and opens the PR to Bankr's public skills catalog.
+
 **P5-BANKR — put the fair-price check live on Bankr (owner only; agents never deploy)**
 - *What and why:* Holdtil's fair-price rule becomes a paid API ($0.01 USDC per call) hosted on Bankr x402 Cloud. Bankr runs it, takes each payment on Base and lists it for Bankr agents. Each answered check shows on `/proof`. Do this after the Render deploy (it needs your Render URL).
 - *Steps (on your PC, in the repo folder):*
@@ -211,6 +224,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Base Builder Codes (sponsor item 2, owner pick 1).** Files: `server/src/chain/builderCode.js` (new), `executorChain.js` (suffix on send and in the simulation), `config/env.js` (`BUILDER_CODE`), `index.js`, `scripts/tick.js`, `server/package.json` (+`ox`), tests `test/builderCode.test.js` (6) and one fork case. Tests: verify pass (186 server, 11 scout); fork `executor.fork.test.js` 8 passed: tagged batch pays the agent the same USDC, +458 gas. Tx hashes: none. Env: `BUILDER_CODE` (new, public). Limits: x402 payments can't be tagged (facilitator submits them); off until the owner sets the code (P5-BUILDER). Docs: PRD §15/§16 + deadline fixed to 12 Dec 23:59 UTC, CLAUDE.md gotcha, REAL_VS_MOCKED.
 
 - **2026-11-25 — Fair-price check on Bankr x402 Cloud (FR-FPC-001, sponsor item 2, owner pick).** Files: `bankr/` workspace (`bankr.x402.json`, `x402/fair-price/index.ts` handler, `check.js`, `constants.js`, `lib/` = exact copies of `server/src/core`, `scripts/sync.js`, tests), `server/src/routes/checks.js` (POST `/internal/checks`), `routes/proof.js` (+`fairPrice`, `checks`), `app.js` (route + its own shared rate limit), `config/env.js` (`CHECK_SECRET`, `FAIR_PRICE_URL`), `db/index.js` (indexes), `client/src/pages/Proof.jsx` (new section; screenshots 1280 + 390 checked), PRD §9 FR-FPC-001, §14, §15, §16, §22, §26. Tests: verify pass (191 server, 11 scout, 20 bankr); live read on Base mainnet: $1 of NVDAc → `sell`, gap 10 bps, Chainlink $142.04 (20 min old), min-out 0.999034 USDC. Tx hashes: none. Env: `CHECK_SECRET`, `FAIR_PRICE_URL` (server); `BASE_RPC_URL`, `HOLDTIL_CHECKS_URL`, `CHECK_SECRET` (Bankr). Limits: not deployed (owner step P5-BANKR); Bankr discovery listing is Bankr's call; only NVDAc.
+
+- **2026-11-26 — Holdtil skill for Bankr agents (FR-BKS-001, owner pick).** Files: `bankr/skills/holdtil/` (`SKILL.md`, `catalog.json`, `references/how-it-works.md`, `logo.svg`), `bankr/x402/fair-price/check.js` (+`sell.fairFloorUsdc`), tests `bankr/test/skill.test.js` (+6) and check test, PRD §9/§15/§16/§22/§26, REAL_VS_MOCKED. Tests: verify pass. Live check today: `wait`, `price_stale` (US holiday, reference 12 h old). Tx hashes: none. Env: none. Limits: not tried in a real Bankr wallet yet (owner step P5-BANKR-SKILL, needs P5-BANKR first); no schedule (Bankr Club + $10 minimum); Bankr's swap fee on NVDAc unknown until the owner test.
 
 ## 11. Manual tasks (owner)
 

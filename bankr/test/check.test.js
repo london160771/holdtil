@@ -13,6 +13,9 @@ describe('fair-price check (FR-FPC-001)', () => {
     expect(Number(body.sell.minUsdcOut)).toBeLessThanOrEqual(Number(body.pool.usdcOut));
     expect(body.reference.usd).toBe('153.54255219');
     expect(body.reference.ageSec).toBe(600);
+    // Fair floor (any route, after fees) is at most the pool-specific min-out and close to the USDC asked for.
+    expect(Number(body.sell.fairFloorUsdc)).toBeLessThanOrEqual(Number(body.sell.minUsdcOut));
+    expect(Number(body.sell.fairFloorUsdc)).toBeGreaterThan(0.99);
     expect(body.notice).toMatch(/not financial advice/);
   });
 

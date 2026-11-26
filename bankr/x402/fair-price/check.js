@@ -3,7 +3,8 @@
 // Bad input → 400, chain trouble → 503: Bankr only charges the caller on a status below 400.
 import { formatUnits, parseUnits } from 'viem';
 import { checkPrice, quotePriceFromSwap } from './lib/priceGuard.js';
-import { stockAmountForUsdc, minOut as computeMinOut } from './lib/refillPlanner.js';
+import { stockAmountForUsdc, usdcValue, minOut as computeMinOut } from './lib/refillPlanner.js';
+import { ceilDiv } from './lib/money.js';
 import { AERO_CL_QUOTER, RULE, STOCKS, USDC, erc20DecimalsAbi, feedAbi, quoterAbi } from './constants.js';
 
 export const MIN_USDC = 100_000n; // $0.10
@@ -114,6 +115,9 @@ export async function fairPriceCheck(client, input) {
   if (!price.ok) return wait(price.code, price.reason, { pool, gapBps: gap });
 
   const minOut = computeMinOut({ stockAmount, quotedOut, refPrice, tokenDecimals, usdcDecimals, priceDecimals, slippageBps: RULE.slippageBps, maxGapBps: RULE.maxGapBps });
+  // Fair floor: the Chainlink value of the stock minus maxGapBps. The least a sale on ANY route (e.g. Bankr's
+  // swap, after its fees) may pay and still be fair. minUsdcOut is stricter: it is for the Aerodrome pool quoted here.
+  const fairFloor = ceilDiv(usdcValue({ stockAmount, price: refPrice, tokenDecimals, usdcDecimals, priceDecimals }) * (10_000n - RULE.maxGapBps), 10_000n);
   return {
     status: 200,
     body: {
@@ -123,7 +127,7 @@ export async function fairPriceCheck(client, input) {
       ...base,
       pool,
       gapBps: gap,
-      sell: { stockAmount: formatUnits(stockAmount, tokenDecimals), minUsdcOut: formatUnits(minOut, usdcDecimals) },
+      sell: { stockAmount: formatUnits(stockAmount, tokenDecimals), minUsdcOut: formatUnits(minOut, usdcDecimals), fairFloorUsdc: formatUnits(fairFloor, usdcDecimals) },
     },
   };
 }
