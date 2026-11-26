@@ -5,6 +5,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { Tape, TapeRow, StateChip, TxLink } from '../components/Tape.jsx';
 import MarketNotice from '../components/MarketNotice.jsx';
 import SpendLog from '../components/SpendLog.jsx';
+import Earned from '../components/Earned.jsx';
 
 const CHECK_WHY = { price_stale: 'Chainlink price too old (market closed?)', price_gap_too_wide: 'Pool more than 1% from Chainlink' };
 const when = (at) => new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -22,7 +23,7 @@ export default function Proof() {
 
   if (error) return <div className="alert alert-danger">Could not load proof: {error}</div>;
   if (!data) return <p className="text-secondary">Loading…</p>;
-  const { scout, totals, payments, refills, fairPrice, checks = [], market } = data;
+  const { scout, totals, payments, refills, fairPrice, checks = [], market, earned } = data;
 
   return (
     <div>
@@ -50,6 +51,7 @@ export default function Proof() {
         <div className="stat"><div className="stat-label">Refills</div><div className="stat-figure">{totals.refills}</div><div className="stat-note">{usd(totals.refilledUsdc)} topped up</div></div>
       </div>
       <p className="stat-note mt-2">Counts cover the {totals.window} records.</p>
+      <Earned earned={earned} subject="The budget behind Scout" />
 
       <div className="block-head"><h2 className="block-title">Where Scout&apos;s budget went</h2></div>
       <SpendLog refills={refills} payments={payments} />

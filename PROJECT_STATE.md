@@ -231,6 +231,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 
 - **2026-11-26 — Agent spending log (owner-approved feature 5).** Files: `server/src/routes/proof.js` (`seller`, `item`, `payTo` per payment), `client/src/components/SpendLog.jsx` (new), Proof page ("Where Scout's budget went"; old payments list renamed "Every Scout run"), Agent page ("Where the budget went"; BaseScan link for non-Scout agents), +1 API test. Checked at 1280 and 390 (mocked API): no sideways scroll. Tx: none. Env: none. PRD §16.
 
+- **2026-11-26 — "Earned while waiting" (owner-approved feature 1).** Files: `server/src/core/earned.js` + `services/earned.js` (new), `app.js` (chain reads for stock balance, reference, decimals), `routes/permissions.js` (saves start price at signing; `earned` in GET), `routes/proof.js` (`earned`), `client/src/components/Earned.jsx` (new), Dashboard + Proof, `styles.css`, tests `test/core/earned.test.js` (4) + 2 permission API tests + 1 proof check. Checked at 1280 and 390 (mocked API). Tx: none. Env: none. PRD §16.
+
 ## 11. Manual tasks (owner)
 
 Status: ⬜ to do · ✅ done

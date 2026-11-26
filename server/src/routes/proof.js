@@ -2,9 +2,11 @@
 // refills Holdtil made for Scout's wallet. Only public on-chain facts; no user ids, no other users' data.
 import { Router } from 'express';
 import { getAddress, isAddress } from 'viem';
+import { ObjectId } from 'mongodb';
 import { REFILLS } from '../db/refills.js';
 import { publicRefill } from './refills.js';
 import { publicMarketStatus } from '../core/marketHours.js';
+import { earnedForUser } from '../services/earned.js';
 
 const LIMIT = 30;
 
@@ -36,11 +38,12 @@ export function proofRoutes({ db, config, chain }) {
 
     let refills = [];
     let usdcBalance = null;
+    let earned = [];
     if (scout) {
       // scout is a checksummed hex address, so it is safe inside a regex.
       // Only the FIRST agent registered for Scout's wallet (the owner's). Anyone else adding the same address
       // can't put rows on the public page (Checkpoint C #7).
-      const first = await db.collection('agents').find({ walletAddress: { $regex: `^${scout}$`, $options: 'i' } }).sort({ createdAt: 1, _id: 1 }).limit(1).project({ _id: 1 }).toArray();
+      const first = await db.collection('agents').find({ walletAddress: { $regex: `^${scout}$`, $options: 'i' } }).sort({ createdAt: 1, _id: 1 }).limit(1).project({ _id: 1, userId: 1 }).toArray();
       const ids = first.map((a) => String(a._id));
       const list = ids.length ? await db.collection(REFILLS).find({ agentId: { $in: ids } }).sort({ createdAt: -1 }).limit(LIMIT).toArray() : [];
       refills = list.map((x) => {
@@ -49,6 +52,15 @@ export function proofRoutes({ db, config, chain }) {
         delete p.refillId;
         return p;
       });
+      // "Earned while waiting" for the account that funds Scout (the owner's demo account). Totals only, no address.
+      if (first[0]?.userId) {
+        try {
+          const u = await db.collection('users').findOne({ _id: new ObjectId(first[0].userId) });
+          earned = u ? await earnedForUser({ db, chain, userId: first[0].userId, userAddress: u.address }) : [];
+        } catch {
+          earned = 'unavailable';
+        }
+      }
       try {
         usdcBalance = (await chain.readUsdcBalance(scout)).toString();
       } catch {
@@ -79,6 +91,7 @@ export function proofRoutes({ db, config, chain }) {
     res.json({
       scout: scout ? { address: scout, usdcBalance } : null,
       market: publicMarketStatus(new Date()),
+      earned,
       totals: {
         payments: paid.length,
         paidUsdc: paid.reduce((s, p) => s + BigInt(p.costUsdc ?? '0'), 0n).toString(),

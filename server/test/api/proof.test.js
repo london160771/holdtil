@@ -46,6 +46,7 @@ describe('GET /v1/proof (public)', () => {
     expect(res.body.payments).toEqual([expect.objectContaining({ status: 'paid', costUsdc: '30000', summary: 'US market open', seller: 'x402stock.xyz', item: 'market-pulse' })]);
     expect(res.body.totals).toMatchObject({ payments: 1, paidUsdc: '30000', refills: 1, refilledUsdc: '988785' });
     expect(res.body.scout.usdcBalance).toBe('1500000');
+    expect(res.body.earned).toEqual([]); // owner has no permission in this test
     expect(JSON.stringify(res.body)).not.toContain(owner.address.toLowerCase());
   });
 
