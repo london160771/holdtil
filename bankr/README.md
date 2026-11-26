@@ -13,3 +13,7 @@ GET https://x402.bankr.bot/<wallet>/fair-price?stock=NVDAc&usdc=1
 - Bad input answers 400 and chain trouble 503, so the caller isn't charged.
 - `lib/` holds exact copies of `server/src/core` (`npm run bankr:sync`); `test/sync.test.js` fails if they drift.
 - Deploy (owner only): see PROJECT_STATE §1 "P5-BANKR".
+
+## Holdtil skill for Bankr agents
+
+`skills/holdtil/` is a Bankr skill: a Bankr agent keeps its budget in NVDAc, and on "holdtil refill" it pays the check above and sells with Bankr's own swap only at or above `sell.fairFloorUsdc`. Install in Bankr chat: `install the skill at https://github.com/london160771/holdtil/tree/main/bankr/skills/holdtil`. Owner test: PROJECT_STATE §1 "P5-BANKR-SKILL".
