@@ -3,9 +3,9 @@ import { parseUnits } from 'viem';
 import { grantPermission } from '../wallet.js';
 
 /** Signs a daily Spend Permission for one stock. Signing only — nothing is spent. */
-export default function GrantPermission({ me, onDone }) {
+export default function GrantPermission({ me, onDone, defaultSymbol }) {
   const stocks = me?.chain?.stocks ?? [];
-  const [symbol, setSymbol] = useState(stocks[0]?.symbol ?? '');
+  const [symbol, setSymbol] = useState(stocks.some((s) => s.symbol === defaultSymbol) ? defaultSymbol : (stocks[0]?.symbol ?? ''));
   const [amount, setAmount] = useState('0.01');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -46,7 +46,7 @@ export default function GrantPermission({ me, onDone }) {
           <label className="form-label small" htmlFor="perm-stock">Stock</label>
           <select id="perm-stock" className="form-select" value={symbol} onChange={(e) => setSymbol(e.target.value)}>
             {stocks.map((s) => (
-              <option key={s.symbol} value={s.symbol}>{s.symbol}</option>
+              <option key={s.symbol} value={s.symbol}>{s.name ? `${s.symbol} · ${s.name}` : s.symbol}</option>
             ))}
           </select>
         </div>

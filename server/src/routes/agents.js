@@ -6,7 +6,7 @@ import { getAddress, isAddress, zeroAddress } from 'viem';
 import { HoldtilError } from '../errors.js';
 import { requireUser, requireOnboarded } from '../auth/session.js';
 import { DEFAULTS, HARD_CAPS } from '../config/limits.js';
-import { isAllowlisted } from '../config/addresses.js';
+import { isAllowlisted, STOCKS, DEFAULT_STOCK } from '../config/addresses.js';
 import { parseUnitsString } from '../services/money.js';
 
 const bad = (msg) => new HoldtilError('invalid_input', msg, { status: 400 });
@@ -19,6 +19,11 @@ function cleanName(name) {
   const n = name.trim();
   if (n.length < 1 || n.length > 40) throw bad('name must be 1–40 characters');
   return n;
+}
+
+function cleanStock(v) {
+  if (typeof v !== 'string' || !Object.hasOwn(STOCKS, v)) throw bad(`stock must be one of: ${Object.keys(STOCKS).join(', ')}`);
+  return v;
 }
 
 function cleanLimits(input, base) {
@@ -38,6 +43,7 @@ export function publicAgent(a, balance) {
     id: String(a._id),
     name: a.name,
     walletAddress: a.walletAddress,
+    stock: a.stock ?? DEFAULT_STOCK,
     floorUsdc: a.floorUsdc,
     targetUsdc: a.targetUsdc,
     maxPerRefillUsdc: a.maxPerRefillUsdc,
@@ -97,6 +103,7 @@ export function agentRoutes({ db, chain }) {
       userId: String(req.user._id),
       name,
       walletAddress: wallet,
+      stock: body.stock === undefined ? DEFAULT_STOCK : cleanStock(body.stock),
       ...Object.fromEntries(MONEY.map((k) => [k, limits[k].toString()])),
       status: 'active',
       createdAt: new Date(),
@@ -114,10 +121,12 @@ export function agentRoutes({ db, chain }) {
     const a = await ownAgent(db, req);
     const body = req.body ?? {};
     if (body.walletAddress !== undefined) throw bad('the agent wallet cannot be changed; add a new agent instead');
-    const allowed = new Set(['name', 'status', ...MONEY]);
+    const allowed = new Set(['name', 'status', 'stock', ...MONEY]);
     for (const k of Object.keys(body)) if (!allowed.has(k)) throw bad(`unknown field ${k}`);
     const set = {};
     if (body.name !== undefined) set.name = cleanName(body.name);
+    // Switching stock is safe: the next tick needs a signed permission for the new stock, or it waits.
+    if (body.stock !== undefined) set.stock = cleanStock(body.stock);
     if (body.status !== undefined) {
       if (body.status !== 'active' && body.status !== 'paused') throw bad('status must be active or paused');
       set.status = body.status;

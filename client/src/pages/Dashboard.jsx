@@ -135,6 +135,7 @@ export default function Dashboard({ me, reload }) {
         <div className="panel mb-3">
           <AgentForm
             submitLabel="Add agent"
+            stocks={me.chain?.stocks}
             onSubmit={async (body) => {
               await api('/v1/agents', { method: 'POST', body });
               setShowAdd(false);

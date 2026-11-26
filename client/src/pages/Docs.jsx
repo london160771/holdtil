@@ -10,7 +10,7 @@ const WORDS = [
   ['AI agent', 'A program that does tasks for you and can pay for what it uses, like data or tools.'],
   ['Wallet', 'An account on the internet that holds money. You hold its key; nobody else can move the money.'],
   ['USDC', 'A digital dollar. 1 USDC is worth about $1. Agents pay their bills with it.'],
-  ['Tokenized stock (NVDAc)', 'A token on Base that tracks a real share, here NVIDIA. It goes up and down like the stock.'],
+  ['Tokenized stock (NVDAc and others)', 'A token on Base that tracks a real share, like NVIDIA (NVDAc). Holdtil supports NVDAc, AAPLc, TSLAc, METAc, GOOGLc and MSFTc: each has a Chainlink price and a pool to sell into. It goes up and down like the stock.'],
   ['Base', 'A low-cost network run by Coinbase where these wallets, tokens and payments live.'],
   ['Base Account', 'Your Coinbase smart wallet on Base. You sign in with it; no password.'],
   ['Spend Permission', 'A limit you sign in your Base Account: "Holdtil may use up to X of my stock per day." You can cancel it any time.'],
@@ -45,7 +45,7 @@ export default function Docs() {
           window helps you make one.
         </li>
         <li>
-          <strong>Some NVDAc in that Base Account.</strong> This is the stock your agent&apos;s budget lives in. See{' '}
+          <strong>Some NVDAc (or AAPLc, TSLAc, METAc, GOOGLc, MSFTc) in that Base Account.</strong> This is the stock your agent&apos;s budget lives in. Each agent pays from one stock you pick. See{' '}
           <a href="https://www.base.org/stocks" target="_blank" rel="noreferrer">base.org/stocks</a>. Not available to US persons.
         </li>
         <li>

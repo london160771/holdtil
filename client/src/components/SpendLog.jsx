@@ -32,7 +32,7 @@ export default function SpendLog({ refills = [], payments = [], stock = { symbol
               <div className="tape-row-main">
                 <span className="chip chip-ok"><ArrowDownLeft size={12} strokeWidth={2} aria-hidden="true" />In</span>
                 <span className="tape-what">
-                  +{usd(x.r.usdcOut)} USDC{x.r.stockAmount ? <> from {tokenAmount(x.r.stockAmount, stock.decimals, stock.symbol)}</> : null}
+                  +{usd(x.r.usdcOut)} USDC{x.r.stockAmount ? <> from {tokenAmount(x.r.stockAmount, stock.decimals, x.r.stock ?? stock.symbol)}</> : null}
                 </span>
                 <time className="tape-time" dateTime={new Date(x.at).toISOString()}>{when(x.at)}</time>
               </div>

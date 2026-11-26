@@ -3,7 +3,7 @@
 // → simulate → [dry run stops here] → controls again → send (hash saved) → confirm.
 // Fails closed: anything unknown is a wait or a block, never a sale. Safe to run late or twice.
 import { getAddress } from 'viem';
-import { STOCKS } from '../config/addresses.js';
+import { STOCKS, stockOf } from '../config/addresses.js';
 import { EXECUTOR } from '../config/executor.js';
 import { HoldtilError } from '../errors.js';
 import { checkControls } from '../core/decide.js';
@@ -192,7 +192,7 @@ async function recordDecision(db, { agentId, tickId, now, code, reason, facts })
   return { logged: true, refillId: r.refillId };
 }
 
-const FACT_KEYS = ['stockAmount', 'quotedOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'maxPayoutUsdc'];
+const FACT_KEYS = ['stock', 'stockAmount', 'quotedOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'maxPayoutUsdc'];
 function pick(facts) {
   const out = {};
   for (const k of FACT_KEYS) if (facts?.[k] !== undefined && facts[k] !== null) out[k] = facts[k];
@@ -204,7 +204,10 @@ async function settleSent(db, chain, refill, timeoutSec = 5) {
   if (!refill.userOpHash) return { refillId: refill.refillId, state: 'sent', alert: true, note: 'no hash recorded; check the spender on chain by hand' };
   const agent = await db.collection('agents').findOne({ _id: await toObjectId(refill.agentId) });
   if (!agent?.walletAddress) return { refillId: refill.refillId, state: 'sent', alert: true, note: 'agent record missing; check by hand' };
-  const res = await chain.checkRefill({ userOpHash: refill.userOpHash, agentWallet: agent.walletAddress, timeoutSec });
+  // Refills from before multi-stock have no `stock`: they were all NVDAc.
+  const stock = STOCKS[refill.stock ?? 'NVDAc'];
+  if (!stock) return { refillId: refill.refillId, state: 'sent', alert: true, note: 'unknown stock on refill; check by hand' };
+  const res = await chain.checkRefill({ userOpHash: refill.userOpHash, agentWallet: agent.walletAddress, pool: stock.pool.address, timeoutSec });
   // Review fix (Checkpoint B #4): our user op succeeded but we can't see the USDC → stay locked and alert.
   // Never free the agent or count $0 when stock may have been sold.
   if (res.status === 'complete' && (typeof res.usdcOut !== 'bigint' || res.usdcOut <= 0n)) {
@@ -235,7 +238,7 @@ export function agentMode(mode, user, config) {
   return user?.address && allowed.includes(user.address.toLowerCase()) ? 'live' : 'dry';
 }
 
-export async function processAgent({ db, chain, config, agent: agentIn, tickId, now, mode: tickMode, stock = STOCKS.NVDAc }) {
+export async function processAgent({ db, chain, config, agent: agentIn, tickId, now, mode: tickMode, stock = stockOf(agentIn) }) {
   let agent = agentIn;
   const agentId = String(agent._id);
   let user = await loadUser(db, agent);
@@ -257,10 +260,12 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
     return { agentId, result: 'skipped', code: 'paused', reason, alert: Boolean(d.logged), ...d };
   }
 
+  if (!stock) return { agentId, result: 'skipped', code: 'paused', reason: 'agent stock is not supported', alert: true };
+
   const plan = await evaluate({ db, chain, agent, user, stock, nowSec, liveCap });
   if (plan.ok && !plan.needed) return { agentId, result: 'not_needed' };
   if (!plan.ok) {
-    const d = await recordDecision(db, { agentId, tickId: runId, now, code: plan.code, reason: plan.reason, facts: plan });
+    const d = await recordDecision(db, { agentId, tickId: runId, now, code: plan.code, reason: plan.reason, facts: { ...plan, stock: stock.symbol } });
     return { agentId, result: decisionStateFor(plan.code), code: plan.code, reason: plan.reason, ...d };
   }
 
@@ -289,7 +294,7 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
     if (!again.needed) return await fail('refill_expired', 'balance is back above the floor; no longer needed', {});
     refill = await moveRefill(db, refill, 'checked', {
       at: at(),
-      fields: { ...pick(again), permissionHash: again.permDoc.permissionHash, mode },
+      fields: { ...pick(again), stock: stock.symbol, permissionHash: again.permDoc.permissionHash, mode },
     });
 
     // Build the batch. Destination comes only from the DB record (INV-5).
@@ -408,11 +413,15 @@ export async function runTick({ db, chain, config, mode = 'dry', now = new Date(
   }
 
   // Checkpoint B #7: token decimals read on chain must match config, or nothing is sold this tick.
+  // Every stock an active agent uses is checked (multi-stock, 2026-11-26).
+  const activeStocks = await db.collection('agents').distinct('stock', { status: 'active' });
+  const toCheck = new Set([STOCKS.NVDAc, ...activeStocks.map((sym) => (Object.hasOwn(STOCKS, sym) ? STOCKS[sym] : null)).filter(Boolean)]);
   try {
-    const d = await chain.readDecimals(STOCKS.NVDAc.address);
-    if (d !== STOCKS.NVDAc.decimals) {
-      summary.error = 'decimals_mismatch';
-      return summary;
+    for (const st of toCheck) {
+      if ((await chain.readDecimals(st.address)) !== st.decimals) {
+        summary.error = 'decimals_mismatch';
+        return summary;
+      }
     }
   } catch {
     summary.error = 'chain_unavailable';

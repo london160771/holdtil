@@ -36,7 +36,7 @@ export function meRoutes({ db, config }) {
       // Display only (PRD §16 "Market hours"): explains price_stale waits. The price guard still decides.
       market: publicMarketStatus(new Date()),
       // Public values the app needs to request a permission. Not secrets.
-      chain: { chainId: CHAIN_ID, spenderAddress: config?.spenderAddress || null, stocks: Object.values(STOCKS).map((s) => ({ symbol: s.symbol, address: s.address, decimals: s.decimals })) },
+      chain: { chainId: CHAIN_ID, spenderAddress: config?.spenderAddress || null, stocks: Object.values(STOCKS).map((s) => ({ symbol: s.symbol, name: s.name, address: s.address, decimals: s.decimals })) },
     });
   });
 

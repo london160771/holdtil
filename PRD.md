@@ -158,7 +158,7 @@ Invariant form: every confirmed refill has `gapBps ≤ maxGapBps`, `priceAge ≤
 | FR-BKS-001 | P0 | Holdtil skill for Bankr agents (owner pick 2026-11-26): the agent keeps its budget in NVDAc in its own Bankr wallet; when USDC on Base is below the owner's floor it pays FR-FPC-001, and only on `sell` sells exactly `sell.stockAmount` with Bankr's own swap, with slippage set so Bankr's minimum = `sell.fairFloorUsdc`. On `wait`, errors, or a Bankr quote below the floor it sells nothing. Holdtil never holds Bankr users' funds or keys; the existing app is unchanged. | Skill format tests (Bankr rules) + numbers match the check; owner dry run in Bankr chat, then one real ≤ $2 refill approved by the owner with its tx hash. |
 | FR-LND-001 | P0 | Landing page, "Connect your agent" guide, risk + not-US + not-advice notices. | Visible before signup and in the footer. |
 | FR-RSV-001 | P1 | USDC reserve fallback: second permission on the owner's USDC, used only when stock price is unfair and float is critical. | Fork test passes. |
-| FR-STK-001 | P1 | More stock tokens (AAPLc, GOOGLc, METAc). | Same tests pass per token. |
+| FR-STK-001 | P0 (owner, 2026-11-26) | More stock tokens: AAPLc, TSLAc, METAc, GOOGLc, MSFTc next to NVDAc. Each agent pays from one stock. | Same tests pass per token; fork simulation of a $1 refill per token. |
 | FR-ALR-001 | P1 | Email or Telegram alert on waits, blocks and low allowance. | Alert received in test. |
 
 ---
@@ -230,7 +230,7 @@ Holdtil Scout (separate Node process) ── x402 ──► x402stock.xyz   (its
 
 **Collections:**
 - `users` — `address` (unique, lowercase), `notUsConfirmedAt`, `termsAcceptedAt`, `stoppedAt`, `dailyLimitUsd`, `createdAt`
-- `agents` — `userId`, `name`, `walletAddress`, `floorUsdc` (base units), `targetUsdc`, `maxPerRefillUsdc`, `dailyLimitUsdc`, `status` (`active|paused`), unique (`userId`,`walletAddress`)
+- `agents` — `userId`, `name`, `walletAddress`, `floorUsdc` (base units), `targetUsdc`, `maxPerRefillUsdc`, `dailyLimitUsdc`, `status` (`active|paused`), `stock` (symbol, default `NVDAc`), unique (`userId`,`walletAddress`)
 - `permissions` — `userId`, `token`, `allowance`, `periodSec`, `start`, `end`, `permissionHash` (unique), `signature`, `status`
 - `refills` — `refillId` (unique), `agentId`, `state`, `code`, `stockAmount`, `usdcOut`, `minOut`, `refPrice`, `refPriceAt`, `quotePrice`, `gapBps`, `txHash`, timestamps; partial unique index on `agentId` where `inFlight: true`, set while `state ∈ {planned, checked, simulated, sent}` (INV-4)
 - `nonces` — `nonce` (unique), `address`, `expiresAt` (TTL)
@@ -380,6 +380,7 @@ No extra MVP endpoints beyond this table.
 | 2026-11-26 | Market hours (display only): `GET /v1/me` and `GET /v1/proof` return `market {open, reason, holiday, nextOpenAt, nextCloseAt}` from `server/src/core/marketHours.js`. Session = 20:00 New York time the evening before a trading day to 20:00 that day, Mon–Fri, minus NYSE full-day holidays (2026–2027 list). The UI shows "market closed, next refill window expected …" while closed. It never allows a sale: the price guard still decides from the feed's `updatedAt` | Seen on chain (NVDA feed, rounds 19–26 Nov): weekend gap Fri 18:42 ET → Sun 20:00 ET; last update Wed 25 Nov 19:17 ET, then none on Thanksgiving, when the owner's tick waited `price_stale`. Holidays: nyse.com/markets/hours-calendars |
 | 2026-11-26 | Spending log: `/proof` and the agent page show money in (confirmed refills: stock sold → USDC) and money out (paid x402 calls: item, seller, cost, tx) in one list. `GET /v1/proof` payments add `seller`, `item` (from the stored https URL; else null) and `payTo`. Only Holdtil Scout records what it bought; other agents get a BaseScan link to their wallet's USDC transfers. No new endpoint | Public `mainnet.base.org` refuses `eth_getLogs` for USDC transfers (tested 2026-11-26: "RPC Request failed" / "request limit reached"), so reading any agent's spends from chain is not reliable enough to show |
 | 2026-11-26 | "Earned while waiting" (display only, `server/src/core/earned.js` + `services/earned.js`): kept = stock still held × Chainlink price now + USDC refills paid out; idle = (held + sold since start) × start price; earned = kept − idle (can be negative). Start price = Chainlink answer saved when a permission is signed (`startRefPrice`, `startRefAt`); older permissions use the first confirmed refill's reference price. `GET /v1/permissions` adds `earned[]` per stock; `GET /v1/proof` adds `earned[]` for the account that registered Scout first (totals only, no address). Chain read fails → `unavailable`. Shown on the dashboard and `/proof` | Owner feature 1. Simple, checkable formula; every input is a stored refill or a fresh chain read |
+| 2026-11-26 | More stocks (FR-STK-001): AAPLc, TSLAc, METAc, GOOGLc, MSFTc added to `addresses.js` with their Chainlink "Coinbase <TICKER>" feeds and Aerodrome Slipstream pools (tickSpacing 10, fee 0.05%). Each agent has `stock` (default NVDAc; can be switched); the tick sells only that stock, needs a signed permission for it, checks decimals of every stock in use, records `stock` on each refill, and counts USDC only from that stock's pool. Bankr fair-price check stays NVDAc-only for now | Sources: api.coinbase.com/v1/tokenized-stocks + /nav-feeds (official, same as NVDAc). On chain 2026-11-26: decimals 8, feed descriptions match, pool USDC 7.6k–46.8k, $1–$25 sell quotes 18–59 bps from Chainlink; fork simulation of a $1 refill per stock with the real CDP spender: USDC ≥ min-out for all five. Picked the six best-known names with both a feed and a real pool; MSTRc/SPCXc/SNDKc also qualify (→ ROADMAP) |
 ---
 
 ## 17. Real vs mocked
@@ -510,7 +511,7 @@ Judging criteria are not published yet ([ ] update when known).
 ## 26. Scope control
 
 **P0 — must ship:** FR-AUTH-*, FR-AGT-001, FR-PRM-*, FR-RFL-*, FR-RCP-001, FR-CTL-001, FR-SCT-001, FR-PRF-001, FR-FPC-001, FR-BKS-001, FR-LND-001.
-**P1 — only after P0 is live AND recorded:** FR-RSV-001, FR-STK-001, FR-ALR-001.
+**P1 — only after P0 is live AND recorded:** FR-RSV-001, FR-ALR-001. (FR-STK-001 moved into the build 2026-11-26, §16.)
 **Never in this build (→ ROADMAP.md):** rebalancing, lending/leverage, own token, US users, mobile app, multi-chain.
 
 ---

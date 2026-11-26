@@ -83,13 +83,14 @@ export default function Agent({ me }) {
       <dl className="facts">
         <dt>Wallet</dt><dd className="font-monospace text-break">{agent.walletAddress}</dd>
         <dt>Status</dt><dd><StateChip state={agent.status === 'active' ? 'confirmed' : 'waited'} label={agent.status} /></dd>
+        <dt>Pays from</dt><dd>{agent.stock}</dd>
         <dt>USDC float</dt><dd className="tnum">{usd(agent.usdcBalance)}</dd>
       </dl>
       {error && <div className="alert alert-danger mt-3">{error}</div>}
       {saved && <div className="alert alert-success mt-3">Saved</div>}
       <div className="block-head"><h2 className="block-title">Limits</h2></div>
       <div className="panel">
-        <AgentForm key={agent.updatedAt ?? 'a'} initial={agent} submitLabel="Save" onSubmit={patch} />
+        <AgentForm key={agent.updatedAt ?? 'a'} initial={agent} stocks={me?.chain?.stocks} submitLabel="Save" onSubmit={patch} />
       </div>
       <div className="block-head"><h2 className="block-title">Where the budget went</h2></div>
       <Spending agent={agent} />

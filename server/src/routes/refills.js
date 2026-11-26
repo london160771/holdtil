@@ -13,6 +13,7 @@ export function publicRefill(r) {
     refillId: r.refillId,
     agentId: r.agentId,
     state: r.state,
+    stock: r.stock ?? 'NVDAc', // refills before multi-stock were all NVDAc
     code: r.code ?? null,
     nextAction: r.code ? CODES[r.code]?.nextAction ?? null : null,
     reason: r.history?.at(-1)?.note ?? null,
