@@ -10,12 +10,13 @@
   "workspaces": [
     "server",
     "client",
-    "scout"
+    "scout",
+    "bankr"
   ],
   "scripts": {
     "dev": "concurrently -n server,client \"npm run dev -w server\" \"npm run dev -w client\"",
-    "test": "npm test -w server && npm test -w scout",
-    "test:fork": "npm run test:fork -w server",
+    "test": "npm test -w server && npm test -w scout && npm test -w bankr",
+    "test:fork": "npm run test:fork -w server && npm run test:live -w bankr",
     "lint": "eslint . --max-warnings 0",
     "build": "npm run build -w client",
     "verify": "npm run lint && npm test && npm run build",
@@ -26,7 +27,8 @@
     "scout:new-key": "npm run new-key -w scout",
     "spender": "npm run spender -w server --",
     "spender:prod": "npm run spender:prod -w server --",
-    "scout:sweep": "npm run sweep -w scout --"
+    "scout:sweep": "npm run sweep -w scout --",
+    "bankr:sync": "npm run sync -w bankr"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -41,6 +41,25 @@ export function proofRoutes({ db, config, chain }) {
         usdcBalance = 'unavailable';
       }
     }
+    // Fair-price checks answered on Bankr (FR-FPC-001). Payments settle at Bankr after the answer, so we link the
+    // payout wallet on BaseScan instead of claiming a tx per check.
+    const checkDocs = await db.collection('fairPriceChecks').find({}).sort({ createdAt: -1 }).limit(LIMIT).toArray();
+    const checks = checkDocs.map((c) => ({
+      at: c.checkedAt,
+      payer: c.payer ?? null,
+      stock: c.stock,
+      forUsdc: c.forUsdc,
+      verdict: c.verdict,
+      reason: c.reason ?? null,
+      gapBps: c.gapBps ?? null,
+      refUsd: c.refUsd ?? null,
+      ageSec: c.ageSec ?? null,
+      block: c.block,
+    }));
+    const checkCount = await db.collection('fairPriceChecks').estimatedDocumentCount();
+    const fairPrice = config.fairPriceUrl
+      ? { url: config.fairPriceUrl, payoutWallet: getAddress(config.fairPriceUrl.split('/')[3]), priceUsdc: '0.01', answered: checkCount }
+      : null;
     const paid = payments.filter((p) => p.txHash);
     const confirmed = refills.filter((x) => x.state === 'confirmed');
     res.json({
@@ -54,6 +73,8 @@ export function proofRoutes({ db, config, chain }) {
       },
       payments,
       refills,
+      fairPrice,
+      checks,
     });
   });
   return r;

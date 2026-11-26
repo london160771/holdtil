@@ -18,6 +18,8 @@ export async function ensureIndexes(db) {
   await db.collection('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'session_ttl' });
   await db.collection('scoutRuns').createIndex({ runId: 1 }, { unique: true, name: 'runId_unique' });
   await db.collection('scoutRuns').createIndex({ createdAt: -1 }, { name: 'recent' });
+  await db.collection('fairPriceChecks').createIndex({ checkId: 1 }, { unique: true, name: 'checkId_unique' });
+  await db.collection('fairPriceChecks').createIndex({ createdAt: -1 }, { name: 'recent' });
   await ensureRefillIndexes(db);
 }
 
