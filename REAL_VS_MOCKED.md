@@ -17,6 +17,6 @@ Stated plainly. The UI banner always shows **`REAL · BASE MAINNET`**. There is 
 
 **Fallbacks:** none. If a value can't be read, the UI shows "unavailable".
 
-**Not live yet:** `/proof` runs locally until the owner deploys (Phase 5). Refills are live only for the owner's account with a $1 cap until launch (Phase 5). This file is updated as each part goes live.
+**Not live yet:** `/proof` runs locally until the owner deploys (Phase 5). Refills are live only for the owner's account until the owner sets `LIVE_USER_ADDRESSES=*` (guide P5-LIVE-ALL); then every user is live under their own limits, with a $25 site-wide cap per refill and a $0.02 user-paid gas fee per refill. This file is updated as each part goes live.
 
 This file, the UI banner, PRD §17 and the code agree. An honest "not yet" beats a fake green badge.

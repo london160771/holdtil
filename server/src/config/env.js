@@ -17,10 +17,18 @@ function gasFee(v) {
   return BigInt(t);
 }
 
+// A typo must never quietly raise the cap: anything but plain digits stops the server (review 2026-11-26 #2).
+function liveCap(v) {
+  const t = (v ?? '').trim();
+  if (t === '') return 25_000_000n;
+  if (!/^\d+$/.test(t)) throw new Error('LIVE_MAX_REFILL_USDC must be USDC base units, digits only (25000000 = $25)');
+  return BigInt(t);
+}
+
 function feeWallet(v) {
   const t = (v ?? '').trim();
   if (t === '') return '';
-  if (!/^0x[0-9a-fA-F]{40}$/.test(t)) throw new Error('FEE_WALLET must be a 0x address on Base');
+  if (!/^0x[0-9a-fA-F]{40}$/.test(t) || /^0x0{40}$/.test(t)) throw new Error('FEE_WALLET must be a 0x address on Base (not the zero address)');
   return t;
 }
 
@@ -51,7 +59,7 @@ export function loadConfig(env = process.env) {
     liveAll: (env.LIVE_USER_ADDRESSES || '').trim() === '*',
     liveUsers: (env.LIVE_USER_ADDRESSES || '').split(',').map((a) => a.trim()).filter((a) => /^0x[0-9a-fA-F]{40}$/.test(a)),
     // Site-wide emergency cap per refill, gas fee included (USDC base units). Default $25 (PRD FR-RFL-006).
-    liveMaxRefillUsdc: /^\d+$/.test(env.LIVE_MAX_REFILL_USDC || '') ? BigInt(env.LIVE_MAX_REFILL_USDC) : 25_000_000n,
+    liveMaxRefillUsdc: liveCap(env.LIVE_MAX_REFILL_USDC),
     // User-paid gas fee per refill (USDC base units), sold from the user's stock to FEE_WALLET in the same batch.
     // Default $0.02, max $0.05. Live refills are refused while the fee is on and FEE_WALLET is empty.
     gasFeeUsdc: gasFee(env.GAS_FEE_USDC),

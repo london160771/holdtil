@@ -555,12 +555,13 @@ describe('live for all users + user-paid gas fee (FR-RFL-006)', () => {
     expect(r.feeMinOut).toBe(String(fee.amountOutMinimum));
   });
 
-  it('fee on but FEE_WALLET empty: dry runs still work, live sends nothing', async () => {
+  it('fee on but FEE_WALLET empty: live refuses up front and sends nothing', async () => {
     const { agentId } = await setupUser({ liveListed: false });
     const ex = fakeExecutor(chain);
     const res = resultFor(await live(ex, new Date(), { ...feeConfig, feeWallet: '' }), agentId);
-    expect(res).toMatchObject({ result: 'blocked', code: 'paused', reason: expect.stringMatching(/FEE_WALLET/) });
+    expect(res).toMatchObject({ result: 'skipped', code: 'paused', reason: expect.stringMatching(/FEE_WALLET/) });
     expect(ex.s.sends).toHaveLength(0);
+    expect(await refillsOf(agentId)).toHaveLength(0); // refused before any lock or record
   });
 
   it('a simulated fee below its min-out sends nothing', async () => {

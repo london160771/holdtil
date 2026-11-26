@@ -14,5 +14,9 @@ describe('env', () => {
     expect(() => loadConfig({ GAS_FEE_USDC: '50001' })).toThrow(/GAS_FEE_USDC/);
     expect(() => loadConfig({ GAS_FEE_USDC: '0.02' })).toThrow(/GAS_FEE_USDC/);
     expect(() => loadConfig({ FEE_WALLET: 'me' })).toThrow(/FEE_WALLET/);
+    expect(() => loadConfig({ FEE_WALLET: `0x${'0'.repeat(40)}` })).toThrow(/FEE_WALLET/);
+    // A typo must never quietly raise the cap.
+    for (const v of ['1,000,000', '$1', '1e6', '1.5']) expect(() => loadConfig({ LIVE_MAX_REFILL_USDC: v })).toThrow(/LIVE_MAX_REFILL_USDC/);
+    expect(loadConfig({ LIVE_MAX_REFILL_USDC: ' 1000000 ' }).liveMaxRefillUsdc).toBe(1_000_000n);
   });
 });

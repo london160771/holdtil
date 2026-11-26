@@ -116,7 +116,8 @@ async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId
   const ref = await chain.readReference(stock);
   const sizing = { refPrice: ref.answer > 0n ? ref.answer : 1n, tokenDecimals: stock.decimals, usdcDecimals: USDC_DECIMALS, priceDecimals: ref.decimals, bufferBps: EXECUTOR.bufferBps };
   // Gas fee (FR-RFL-006): a fixed USDC amount, sold from the same stock in the same batch to the fee wallet.
-  const feeStockAmount = fee && ref.answer > 0n ? stockAmountForUsdc({ usdc: fee.usdc, ...sizing }) : 0n;
+  // Sized at the reference price with no buffer, so the fee stays at GAS_FEE_USDC (review 2026-11-26 #3).
+  const feeStockAmount = fee && ref.answer > 0n ? stockAmountForUsdc({ usdc: fee.usdc, ...sizing, bufferBps: 0n }) : 0n;
   // Fit the refill to what the permission still allows today, instead of blocking (smaller refill, same rules).
   let plannedUsdc = need.usdc;
   if (ref.answer > 0n) {
@@ -170,7 +171,9 @@ async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId
     const feePrice = fair(feeQuotePrice);
     if (!feePrice.ok) return stop(feePrice.code, `gas fee sale: ${feePrice.reason}`, facts);
     const feeCommon = { ...common, stockAmount: feeStockAmount, quotedOut: feeQuotedOut };
-    feeFacts = { feeStockAmount, feeQuotedOut, feeMinOut: computeMinOut({ ...feeCommon, slippageBps: EXECUTOR.slippageBps }), feeWallet: fee.wallet };
+    // Fee min-out = reference floor only. The fee swap runs after the agent's swap has moved the pool, so a
+    // quote taken before it would make larger refills revert (review 2026-11-26 #1). Still fair-price bound (INV-2).
+    feeFacts = { feeStockAmount, feeQuotedOut, feeMinOut: computeMinOut({ ...feeCommon, quotedOut: 0n, slippageBps: EXECUTOR.slippageBps }), feeWallet: fee.wallet };
     payout += maxPayoutUsdc(feeCommon);
   }
   const spent = await todaySpend(db, { agentId, userId: String(user._id), excludeRefillId, nowSec });
@@ -263,6 +266,8 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
   // User-paid gas fee (FR-RFL-006). On only when a fee wallet is set; live sends are refused without one (below).
   const feeUsdc = config.gasFeeUsdc ?? 0n;
   const fee = feeUsdc > 0n && config.feeWallet ? { usdc: feeUsdc, wallet: config.feeWallet } : null;
+  // Users pay their own gas: with the fee on, no live refill runs until the owner sets FEE_WALLET (review #5: refuse early).
+  if (mode === 'live' && feeUsdc > 0n && !fee) return { agentId, result: 'skipped', code: 'paused', reason: 'gas fee wallet (FEE_WALLET) is not set; live refills are off', alert: true };
   let nowSec = await chain.blockTime(); // fresh per agent (Checkpoint B #2)
   // Idempotency window per mode: a dry-run record never takes the id a live run needs (owner report 2026-11-25).
   const runId = `${tickId}:${mode}`;

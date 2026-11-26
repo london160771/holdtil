@@ -39,6 +39,13 @@ describe('readUserOpResult', () => {
     const logs = [transfer(POOL, AGENT, 1_000_000n), transfer(POOL, FEE, 20_000n), transfer('0x2222222222222222222222222222222222222222', FEE, 9n), opEvent(OP, true)];
     expect(readUserOpResult(logs, { ...opts, feeWallet: FEE })).toEqual({ found: true, success: true, usdcOut: 1_000_000n, feeOut: 20_000n });
   });
+  it('two ops in one bundle: each counts only its own transfers', () => {
+    const FEE = '0x3333333333333333333333333333333333333333';
+    const OP2 = `0x${'2'.repeat(64)}`;
+    const logs = [transfer(POOL, AGENT, 5n), transfer(POOL, FEE, 1n), opEvent(OP2, true), transfer(POOL, AGENT, 1_000_000n), transfer(POOL, FEE, 20_000n), opEvent(OP, true)];
+    expect(readUserOpResult(logs, { ...opts, feeWallet: FEE })).toMatchObject({ usdcOut: 1_000_000n, feeOut: 20_000n });
+    expect(readUserOpResult(logs, { ...opts, userOpHash: OP2, feeWallet: FEE })).toMatchObject({ usdcOut: 5n, feeOut: 1n });
+  });
   it('reports a reverted op', () => {
     expect(readUserOpResult([opEvent(OP, false)], opts)).toMatchObject({ found: true, success: false });
   });

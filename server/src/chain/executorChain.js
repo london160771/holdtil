@@ -1,7 +1,7 @@
 // Live chain adapter for the executor (server/src/executor/tick.js). Reads with viem; simulates with
 // eth_simulateV1 on real Base state; sends ONLY through the CDP spender (chain/spender.js).
 import { createHash } from 'node:crypto';
-import { encodeFunctionData, decodeFunctionResult, getAddress, numberToHex, parseEventLogs, parseAbi } from 'viem';
+import { encodeFunctionData, decodeFunctionResult, getAddress, numberToHex, parseEventLogs, parseAbi, toEventSelector } from 'viem';
 import { ADDRESSES } from '../config/addresses.js';
 import { erc20Abi, factoryAbi, smartWalletAbi, spendPermissionManagerAbi } from './abis.js';
 import { readReference } from './priceFeed.js';
@@ -16,6 +16,8 @@ const transferAbi = parseAbi(['event Transfer(address indexed from, address inde
 const userOpEventAbi = parseAbi([
   'event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, bool success, uint256 actualGasCost, uint256 actualGasUsed)',
 ]);
+
+const USER_OP_EVENT_TOPIC = toEventSelector(userOpEventAbi[0]).toLowerCase();
 
 /** CDP wants a UUID v4 idempotency key. Deterministic from the refill id, so a retry reuses it. */
 export function idempotencyUuid(refillId) {
@@ -36,7 +38,14 @@ export function readUserOpResult(logs, { userOpHash, agentWallet, pool, spender,
   );
   if (!ev) return { found: false };
   if (spender && getAddress(ev.args.sender) !== getAddress(spender)) return { found: false };
-  const transfers = parseEventLogs({ abi: transferAbi, logs, eventName: 'Transfer' });
+  // Only logs from our own op count: in a bundle, each op's logs sit between the previous op's
+  // UserOperationEvent and its own (review 2026-11-26 #4: two refills in one bundle).
+  const isOpEvent = (l) => l.topics?.[0]?.toLowerCase() === USER_OP_EVENT_TOPIC;
+  const end = logs.findIndex((l) => isOpEvent(l) && l.topics?.[1]?.toLowerCase() === userOpHash.toLowerCase());
+  let begin = end - 1;
+  while (begin >= 0 && !isOpEvent(logs[begin])) begin -= 1;
+  const ours = end >= 0 ? logs.slice(begin + 1, end) : [];
+  const transfers = parseEventLogs({ abi: transferAbi, logs: ours, eventName: 'Transfer' });
   const paidTo = (who) =>
     transfers
       .filter((l) => getAddress(l.address) === getAddress(ADDRESSES.USDC) && getAddress(l.args.from) === getAddress(pool) && getAddress(l.args.to) === getAddress(who))
