@@ -8,6 +8,17 @@ import { publicMarketStatus } from '../core/marketHours.js';
 
 const LIMIT = 30;
 
+/** Seller host and item name from the URL Scout paid for (spending log). Unknown → nulls, never a guess. */
+export function whatWasBought(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'https:') return { seller: null, item: null };
+    return { seller: u.hostname, item: u.pathname.split('/').filter(Boolean).at(-1) ?? null };
+  } catch {
+    return { seller: null, item: null };
+  }
+}
+
 export function proofRoutes({ db, config, chain }) {
   const r = Router();
   r.get('/', async (_req, res) => {
@@ -19,6 +30,8 @@ export function proofRoutes({ db, config, chain }) {
       costUsdc: x.costUsdc ?? null,
       txHash: x.x402TxHash ?? null,
       summary: x.summary ?? null,
+      ...whatWasBought(x.url),
+      payTo: x.payTo ?? null,
     }));
 
     let refills = [];

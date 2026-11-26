@@ -7,6 +7,35 @@ import Receipts from '../components/Receipts.jsx';
 import { ArrowLeft, Pause, Play } from 'lucide-react';
 import { StateChip } from '../components/Tape.jsx';
 import MarketNotice from '../components/MarketNotice.jsx';
+import SpendLog from '../components/SpendLog.jsx';
+
+/** Spending log: x402 payments are known only for Holdtil Scout (it records what it bought). Other agents get a BaseScan link. */
+function Spending({ agent }) {
+  const [data, setData] = useState(undefined);
+  useEffect(() => {
+    let live = true;
+    Promise.all([api('/v1/proof'), api(`/v1/refills?agentId=${agent.id}`)])
+      .then(([proof, mine]) => {
+        if (!live) return;
+        const isScout = proof.scout && proof.scout.address.toLowerCase() === agent.walletAddress.toLowerCase();
+        setData(isScout ? { payments: proof.payments, refills: mine.refills } : null);
+      })
+      .catch(() => live && setData(null));
+    return () => {
+      live = false;
+    };
+  }, [agent.id, agent.walletAddress]);
+  if (data === undefined) return <p className="text-secondary">Loading…</p>;
+  if (data === null) {
+    return (
+      <p className="stat-note">
+        Holdtil sees refills, not what this agent buys. Every USDC payment from its wallet is on{' '}
+        <a href={`https://basescan.org/token/0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913?a=${agent.walletAddress}`} target="_blank" rel="noreferrer">BaseScan</a>.
+      </p>
+    );
+  }
+  return <SpendLog refills={data.refills} payments={data.payments} />;
+}
 
 export default function Agent({ me }) {
   const { id } = useParams();
@@ -62,6 +91,8 @@ export default function Agent({ me }) {
       <div className="panel">
         <AgentForm key={agent.updatedAt ?? 'a'} initial={agent} submitLabel="Save" onSubmit={patch} />
       </div>
+      <div className="block-head"><h2 className="block-title">Where the budget went</h2></div>
+      <Spending agent={agent} />
       <div className="block-head"><h2 className="block-title">Refills and decisions</h2></div>
       <Receipts agentId={agent.id} />
     </div>

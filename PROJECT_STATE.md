@@ -214,6 +214,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 
 - **2026-11-26 — Market-hours notice (owner-approved feature 3 of 4).** Files: `server/src/core/marketHours.js` (new, display only), `routes/me.js` + `routes/proof.js` (+`market`), `client/src/components/MarketNotice.jsx` (new), Dashboard, Agent and Proof pages, `styles.css`, tests `test/core/marketHours.test.js` (8) + 2 API checks. While the US market is closed (weekend or NYSE holiday) the app says why Holdtil waits and when the next refill window is expected, in New York and local time. The price guard is unchanged. Checked at 1280 and 390 (mocked API, Thanksgiving): no sideways scroll. Tx: none. Env: none. PRD §16.
 
+- **2026-11-26 — Agent spending log (owner-approved feature 5).** Files: `server/src/routes/proof.js` (`seller`, `item`, `payTo` per payment), `client/src/components/SpendLog.jsx` (new), Proof page ("Where Scout's budget went"; old payments list renamed "Every Scout run"), Agent page ("Where the budget went"; BaseScan link for non-Scout agents), +1 API test. Checked at 1280 and 390 (mocked API): no sideways scroll. Tx: none. Env: none. PRD §16.
+
 ## 11. Manual tasks (owner)
 
 Status: ⬜ to do · ✅ done

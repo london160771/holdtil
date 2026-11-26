@@ -4,6 +4,7 @@ import { usd, short } from '../format.js';
 import { ArrowUpRight } from 'lucide-react';
 import { Tape, TapeRow, StateChip, TxLink } from '../components/Tape.jsx';
 import MarketNotice from '../components/MarketNotice.jsx';
+import SpendLog from '../components/SpendLog.jsx';
 
 const CHECK_WHY = { price_stale: 'Chainlink price too old (market closed?)', price_gap_too_wide: 'Pool more than 1% from Chainlink' };
 const when = (at) => new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -49,6 +50,9 @@ export default function Proof() {
         <div className="stat"><div className="stat-label">Refills</div><div className="stat-figure">{totals.refills}</div><div className="stat-note">{usd(totals.refilledUsdc)} topped up</div></div>
       </div>
       <p className="stat-note mt-2">Counts cover the {totals.window} records.</p>
+
+      <div className="block-head"><h2 className="block-title">Where Scout&apos;s budget went</h2></div>
+      <SpendLog refills={refills} payments={payments} />
 
       <div className="block-head"><h2 className="block-title">Refills and decisions</h2></div>
       {refills.length === 0 ? (
@@ -100,7 +104,7 @@ export default function Proof() {
         </Tape>
       )}
 
-      <div className="block-head"><h2 className="block-title">Scout&apos;s x402 payments</h2></div>
+      <div className="block-head"><h2 className="block-title">Every Scout run</h2></div>
       {payments.length === 0 ? (
         <p className="empty">No payments yet.</p>
       ) : (
