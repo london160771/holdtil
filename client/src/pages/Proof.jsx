@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { usd, short } from '../format.js';
 import { ArrowUpRight } from 'lucide-react';
 import { Tape, TapeRow, StateChip, TxLink } from '../components/Tape.jsx';
+import MarketNotice from '../components/MarketNotice.jsx';
 
 const CHECK_WHY = { price_stale: 'Chainlink price too old (market closed?)', price_gap_too_wide: 'Pool more than 1% from Chainlink' };
 const when = (at) => new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -20,7 +21,7 @@ export default function Proof() {
 
   if (error) return <div className="alert alert-danger">Could not load proof: {error}</div>;
   if (!data) return <p className="text-secondary">Loading…</p>;
-  const { scout, totals, payments, refills, fairPrice, checks = [] } = data;
+  const { scout, totals, payments, refills, fairPrice, checks = [], market } = data;
 
   return (
     <div>
@@ -29,6 +30,8 @@ export default function Proof() {
         Holdtil Scout is our own AI agent on Base mainnet. It pays for real market data over x402 in USDC. When its USDC runs low, Holdtil sells a small
         amount of stock at a fair price and tops it up. Every row below links to the real transaction.
       </p>
+
+      <MarketNotice market={market} />
 
       <div className="stats">
         <div className="stat">

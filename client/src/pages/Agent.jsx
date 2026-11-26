@@ -6,8 +6,9 @@ import AgentForm from '../components/AgentForm.jsx';
 import Receipts from '../components/Receipts.jsx';
 import { ArrowLeft, Pause, Play } from 'lucide-react';
 import { StateChip } from '../components/Tape.jsx';
+import MarketNotice from '../components/MarketNotice.jsx';
 
-export default function Agent() {
+export default function Agent({ me }) {
   const { id } = useParams();
   const [agent, setAgent] = useState(undefined);
   const [error, setError] = useState(null);
@@ -49,6 +50,7 @@ export default function Agent() {
           {agent.status === 'active' ? 'Pause agent' : 'Resume agent'}
         </button>
       </div>
+      <MarketNotice market={me?.market} />
       <dl className="facts">
         <dt>Wallet</dt><dd className="font-monospace text-break">{agent.walletAddress}</dd>
         <dt>Status</dt><dd><StateChip state={agent.status === 'active' ? 'confirmed' : 'waited'} label={agent.status} /></dd>

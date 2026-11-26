@@ -20,6 +20,8 @@ describe('GET /v1/proof (public)', () => {
     const res = await request(app).get('/v1/proof');
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ scout: { address: scout, usdcBalance: '0' }, payments: [], refills: [], totals: { payments: 0, refills: 0 } });
+    expect(typeof res.body.market.open).toBe('boolean');
+    expect(res.body.market).toHaveProperty('nextOpenAt');
   });
 
   it("shows Scout's payments and the refills of Scout's agent only, without user ids", async () => {

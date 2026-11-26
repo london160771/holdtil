@@ -7,6 +7,7 @@ import AgentForm from '../components/AgentForm.jsx';
 import { revokePermission } from '../wallet.js';
 import { Plus, Play, OctagonX } from 'lucide-react';
 import { HoldGlyph } from '../components/Brand.jsx';
+import MarketNotice from '../components/MarketNotice.jsx';
 
 function FloatBar({ agent }) {
   if (agent.usdcBalance === undefined || agent.usdcBalance === 'unavailable') {
@@ -101,6 +102,7 @@ export default function Dashboard({ me, reload }) {
           All agents are stopped. Holdtil will not sell anything until you resume.
         </div>
       )}
+      <MarketNotice market={me.market} />
       {error && (
         <div className="alert alert-danger d-flex flex-wrap gap-2 align-items-center justify-content-between">
           <span>{error}</span>

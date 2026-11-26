@@ -3,7 +3,7 @@
 > Where the project actually stands. A progress log, not requirements (those live in `PRD.md`).
 > Update at the end of every phase. Only write what was verified. If this file and the repo disagree, the repo wins.
 
-**Last updated:** 2026-11-25 15:10 WAT · **By:** Claude · **Commit:** see §2 / §10
+**Last updated:** 2026-11-26 13:40 WAT · **By:** Claude · **Commit:** see §2 / §10
 
 ---
 
@@ -211,6 +211,8 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Base Builder Codes (sponsor item 2, owner pick 1).** Files: `server/src/chain/builderCode.js` (new), `executorChain.js` (suffix on send and in the simulation), `config/env.js` (`BUILDER_CODE`), `index.js`, `scripts/tick.js`, `server/package.json` (+`ox`), tests `test/builderCode.test.js` (6) and one fork case. Tests: verify pass (186 server, 11 scout); fork `executor.fork.test.js` 8 passed: tagged batch pays the agent the same USDC, +458 gas. Tx hashes: none. Env: `BUILDER_CODE` (new, public). Limits: x402 payments can't be tagged (facilitator submits them); off until the owner sets the code (P5-BUILDER). Docs: PRD §15/§16 + deadline fixed to 12 Dec 23:59 UTC, CLAUDE.md gotcha, REAL_VS_MOCKED.
 
 - **2026-11-25 — Fair-price check on Bankr x402 Cloud (FR-FPC-001, sponsor item 2, owner pick).** Files: `bankr/` workspace (`bankr.x402.json`, `x402/fair-price/index.ts` handler, `check.js`, `constants.js`, `lib/` = exact copies of `server/src/core`, `scripts/sync.js`, tests), `server/src/routes/checks.js` (POST `/internal/checks`), `routes/proof.js` (+`fairPrice`, `checks`), `app.js` (route + its own shared rate limit), `config/env.js` (`CHECK_SECRET`, `FAIR_PRICE_URL`), `db/index.js` (indexes), `client/src/pages/Proof.jsx` (new section; screenshots 1280 + 390 checked), PRD §9 FR-FPC-001, §14, §15, §16, §22, §26. Tests: verify pass (191 server, 11 scout, 20 bankr); live read on Base mainnet: $1 of NVDAc → `sell`, gap 10 bps, Chainlink $142.04 (20 min old), min-out 0.999034 USDC. Tx hashes: none. Env: `CHECK_SECRET`, `FAIR_PRICE_URL` (server); `BASE_RPC_URL`, `HOLDTIL_CHECKS_URL`, `CHECK_SECRET` (Bankr). Limits: not deployed (owner step P5-BANKR); Bankr discovery listing is Bankr's call; only NVDAc.
+
+- **2026-11-26 — Market-hours notice (owner-approved feature 3 of 4).** Files: `server/src/core/marketHours.js` (new, display only), `routes/me.js` + `routes/proof.js` (+`market`), `client/src/components/MarketNotice.jsx` (new), Dashboard, Agent and Proof pages, `styles.css`, tests `test/core/marketHours.test.js` (8) + 2 API checks. While the US market is closed (weekend or NYSE holiday) the app says why Holdtil waits and when the next refill window is expected, in New York and local time. The price guard is unchanged. Checked at 1280 and 390 (mocked API, Thanksgiving): no sideways scroll. Tx: none. Env: none. PRD §16.
 
 ## 11. Manual tasks (owner)
 

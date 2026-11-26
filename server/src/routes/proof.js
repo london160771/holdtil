@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { getAddress, isAddress } from 'viem';
 import { REFILLS } from '../db/refills.js';
 import { publicRefill } from './refills.js';
+import { publicMarketStatus } from '../core/marketHours.js';
 
 const LIMIT = 30;
 
@@ -64,6 +65,7 @@ export function proofRoutes({ db, config, chain }) {
     const confirmed = refills.filter((x) => x.state === 'confirmed');
     res.json({
       scout: scout ? { address: scout, usdcBalance } : null,
+      market: publicMarketStatus(new Date()),
       totals: {
         payments: paid.length,
         paidUsdc: paid.reduce((s, p) => s + BigInt(p.costUsdc ?? '0'), 0n).toString(),
