@@ -155,6 +155,7 @@ Invariant form: every confirmed refill has `gapBps ≤ maxGapBps`, `priceAge ≤
 | FR-SCT-001 | P0 | Holdtil Scout: our own agent that pays x402stock.xyz for real data on a schedule and stores summaries. | Real x402 payments visible on BaseScan; Scout's float is managed by Holdtil. |
 | FR-PRF-001 | P0 | Public proof page `/proof`: Scout's live payments, refills, waits, with tx links. No login. | A logged-out visitor sees real data only. |
 | FR-FPC-001 | P0 | Fair-price check for any agent, sold per call over x402 on Bankr x402 Cloud (owner pick 2026-11-25). Same rule and code as FR-RFL-002: input stock + USDC wanted; output `sell` (with stock amount and min-out, as Holdtil's refill would use) or `wait` (with reason), plus the Chainlink reference, its age, the Aerodrome quote and the gap. $0.01 USDC per call on Base. Reads only; never trades, holds or moves anyone's funds. | Unit tests: fair → `sell`, stale / wide gap / incomplete round / unknown data → `wait`; bad input → 400 and chain failure → 503 (Bankr charges only on < 400). Live fork read returns a real verdict. Each answered check is recorded and shown on `/proof`. |
+| FR-BKS-001 | P0 | Holdtil skill for Bankr agents (owner pick 2026-11-26): the agent keeps its budget in NVDAc in its own Bankr wallet; when USDC on Base is below the owner's floor it pays FR-FPC-001, and only on `sell` sells exactly `sell.stockAmount` with Bankr's own swap, with slippage set so Bankr's minimum = `sell.fairFloorUsdc`. On `wait`, errors, or a Bankr quote below the floor it sells nothing. Holdtil never holds Bankr users' funds or keys; the existing app is unchanged. | Skill format tests (Bankr rules) + numbers match the check; owner dry run in Bankr chat, then one real ≤ $2 refill approved by the owner with its tx hash. |
 | FR-LND-001 | P0 | Landing page, "Connect your agent" guide, risk + not-US + not-advice notices. | Visible before signup and in the footer. |
 | FR-RSV-001 | P1 | USDC reserve fallback: second permission on the owner's USDC, used only when stock price is unfair and float is critical. | Fork test passes. |
 | FR-STK-001 | P1 | More stock tokens (AAPLc, GOOGLc, METAc). | Same tests pass per token. |
@@ -276,6 +277,7 @@ No extra MVP endpoints beyond this table.
 | Aerodrome Slipstream (per Gate 0) | Stock → USDC swap with min-out | `server/src/chain/quote.js`, `server/src/chain/refillBatch.js` |
 | CDP smart account (spender) | Sends the refill batch as one ERC-4337 user op; holds gas only | `server/src/chain/spender.js`, `server/src/chain/executorChain.js` |
 | x402 | How agents pay; Scout pays x402stock | `scout/*` |
+| Bankr agent + wallet + swap (skill) | Runs Holdtil's refill loop inside a Bankr wallet: the agent pays the check, quotes and swaps NVDAc → USDC with Bankr's swap, under Bankr's own spend limits (FR-BKS-001) | `bankr/skills/holdtil/` |
 | Bankr x402 Cloud | Hosts Holdtil's paid fair-price check (FR-FPC-001): runs the handler, verifies and settles each $0.01 USDC payment on Base, lists it for Bankr agents to discover and pay in chat | `bankr/` |
 | Base Builder Codes (ERC-8021) | Tags every refill user op so Base attributes the activity to Holdtil (attribution only; on when `BUILDER_CODE` is set) | `server/src/chain/builderCode.js`, `server/src/chain/executorChain.js` |
 
@@ -373,6 +375,7 @@ No extra MVP endpoints beyond this table.
 | 2026-11-25 | Tagline is now "Your agent's **budget** stays invested until it pays." (was "money") | More exact: the stock sits in the owner's Base Account and the agent wallet only holds a small USDC float. Owner approved in the build thread |
 | 2026-11-25 | Base Builder Code (ERC-8021) on every refill user op via CDP `sendUserOperation({ dataSuffix })`; the simulation uses the same suffixed calldata. Code comes from `BUILDER_CODE` (public; from Base Dashboard). Empty = no tag; malformed = server won't start. Not on Scout's x402 payments: those are signed authorizations that the facilitator submits, so we don't control their calldata | docs.base.org/apps/builder-codes/app-developers; fork test: suffix adds 458 gas, same USDC to agent; suffix matches the docs example byte for byte |
 | 2026-11-25 | FR-FPC-001 fair-price check on Bankr x402 Cloud, $0.01 USDC per call. Code lives in `bankr/`; the price rule files are exact copies of `server/src/core` (a test fails on drift; `npm run bankr:sync` copies). Bad input answers 400 and chain failure 503, so the caller is not charged; `wait` answers 200 (a paid, correct answer). The handler records each answer at `POST /internal/checks` (`CHECK_SECRET` in Bankr env + Render); a failed record never changes the answer. `/proof` shows answered checks and links the payout wallet on BaseScan for the actual payments (settlement happens at Bankr after the answer, so we don't claim a tx per check). The owner deploys with the Bankr CLI | Bankr docs: x402-cloud reference (settles only on status < 400; payer in `x-402-payer`; imports must stay inside the service folder) |
+| 2026-11-26 | FR-BKS-001 Holdtil skill for Bankr agents (`bankr/skills/holdtil/`, Bankr SKILL.md + catalog.json format). The fair-price answer adds `sell.fairFloorUsdc` = Chainlink value of `stockAmount` − `maxGapBps`: the floor for any route after its fees (Bankr's swap routes B20 through its bridge/swap aggregator and charges a fee, so the Aerodrome-specific `minUsdcOut` would wrongly block it). Bankr chat swaps take slippage, not a min-out, so the skill sets `slippage = (expected − fairFloor)/expected`. Refills are on demand ("holdtil refill"); Bankr scheduled commands need Club and decline trades under $10, so no schedule in the MVP. Owner sets Bankr Security limits as the hard cap. Risk: if Bankr's fee + gap exceed 1%, the skill always waits (measured in the owner test) | Bankr docs: token-trading, tokenized-stocks (B20 needs location check), wallet-api/swap (B20 via aggregator, `feeBps`), automation (Club, $10 min), skills format. Live check 2026-11-26 (US holiday): `wait`, `price_stale`, reference 43,630 s old |
 ---
 
 ## 17. Real vs mocked
@@ -448,7 +451,7 @@ Persistent banner: `REAL · BASE MAINNET`.
 | 0:30–1:20 | New way | Sign in, add agent, grant permission | "Hold stocks. Set limits. Holdtil handles the rest." |
 | 1:20–2:10 | Real action | Scout pays x402stock; refill receipt + BaseScan | "Real data, real payment, real refill — on mainnet." |
 | 2:10–3:20 | Break it | Waited / blocked decisions + tests | "Price off? It waits. Over limit? Blocked." |
-| 3:10–3:20 | Guard for hire | A Bankr agent asks to sell NVDA, pays Holdtil $0.01 on Bankr, gets `wait` (or `sell` + min-out); /proof lists the check | "Any agent can buy the same rule." |
+| 3:10–3:20 | Holdtil on Bankr | In Bankr chat: "holdtil refill" → the agent pays Holdtil $0.01, gets `wait` (market closed) or `sell`, then swaps NVDAc → USDC with Bankr's swap at or above the fair floor; /proof lists the check | "Any agent on Bankr gets the same rule." |
 | 3:20–3:50 | Control returns | Stop all agents → next tick paused | "One tap and it stops." |
 | 3:50–4:00 | Close | Logo + holdtil.xyz | Positioning line (§25) |
 
@@ -502,7 +505,7 @@ Judging criteria are not published yet ([ ] update when known).
 
 ## 26. Scope control
 
-**P0 — must ship:** FR-AUTH-*, FR-AGT-001, FR-PRM-*, FR-RFL-*, FR-RCP-001, FR-CTL-001, FR-SCT-001, FR-PRF-001, FR-FPC-001, FR-LND-001.
+**P0 — must ship:** FR-AUTH-*, FR-AGT-001, FR-PRM-*, FR-RFL-*, FR-RCP-001, FR-CTL-001, FR-SCT-001, FR-PRF-001, FR-FPC-001, FR-BKS-001, FR-LND-001.
 **P1 — only after P0 is live AND recorded:** FR-RSV-001, FR-STK-001, FR-ALR-001.
 **Never in this build (→ ROADMAP.md):** rebalancing, lending/leverage, own token, US users, mobile app, multi-chain.
 
