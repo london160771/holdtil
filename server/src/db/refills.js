@@ -69,6 +69,7 @@ export async function createPlannedRefill(db, { agentId, tickId, plannedUsdc, no
 const MOVABLE_FIELDS = new Set([
   'stock', 'stockAmount', 'usdcOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'txHash', 'reason',
   'userOpHash', 'permissionHash', 'quotedOut', 'simulatedUsdcOut', 'maxPayoutUsdc', 'mode', 'sentAt', 'confirmedAt',
+  'feeStockAmount', 'feeQuotedOut', 'feeMinOut', 'feeWallet', 'simulatedFeeOut', 'feeUsdcOut',
 ]);
 
 function cleanFields(fields = {}) {

@@ -8,6 +8,30 @@ export function missingEnv(names = REQUIRED_FOR_SERVER, env = process.env) {
   return names.filter((n) => !env[n] || String(env[n]).trim() === '');
 }
 
+export const MAX_GAS_FEE_USDC = 50_000n;
+
+function gasFee(v) {
+  const t = (v ?? '').trim();
+  if (t === '') return 20_000n;
+  if (!/^\d+$/.test(t) || BigInt(t) > MAX_GAS_FEE_USDC) throw new Error('GAS_FEE_USDC must be USDC base units from 0 to 50000 ($0.05), e.g. 20000');
+  return BigInt(t);
+}
+
+// A typo must never quietly raise the cap: anything but plain digits stops the server (review 2026-11-26 #2).
+function liveCap(v) {
+  const t = (v ?? '').trim();
+  if (t === '') return 25_000_000n;
+  if (!/^\d+$/.test(t)) throw new Error('LIVE_MAX_REFILL_USDC must be USDC base units, digits only (25000000 = $25)');
+  return BigInt(t);
+}
+
+function feeWallet(v) {
+  const t = (v ?? '').trim();
+  if (t === '') return '';
+  if (!/^0x[0-9a-fA-F]{40}$/.test(t) || /^0x0{40}$/.test(t)) throw new Error('FEE_WALLET must be a 0x address on Base (not the zero address)');
+  return t;
+}
+
 export function loadConfig(env = process.env) {
   const appOrigin = env.APP_ORIGIN || 'http://localhost:5173';
   return {
@@ -30,10 +54,16 @@ export function loadConfig(env = process.env) {
     scoutAddress: env.SCOUT_ADDRESS || '',
     // Refill executor: 'dry' (default; simulates, sends nothing) unless the owner sets EXECUTOR_MODE=live.
     executorMode: env.EXECUTOR_MODE === 'live' ? 'live' : 'dry',
-    // Rollout step 4: in live mode only these accounts get real refills; everyone else stays dry.
+    // Who gets real refills in live mode: LIVE_USER_ADDRESSES=* means every user (rollout step 5, each under
+    // their own limits); a comma list means only those accounts (step 4). Everyone else stays dry.
+    liveAll: (env.LIVE_USER_ADDRESSES || '').trim() === '*',
     liveUsers: (env.LIVE_USER_ADDRESSES || '').split(',').map((a) => a.trim()).filter((a) => /^0x[0-9a-fA-F]{40}$/.test(a)),
-    // Hard cap per real refill while rolling out (USDC base units). Default $1.
-    liveMaxRefillUsdc: /^\d+$/.test(env.LIVE_MAX_REFILL_USDC || '') ? BigInt(env.LIVE_MAX_REFILL_USDC) : 1_000_000n,
+    // Site-wide emergency cap per refill, gas fee included (USDC base units). Default $25 (PRD FR-RFL-006).
+    liveMaxRefillUsdc: liveCap(env.LIVE_MAX_REFILL_USDC),
+    // User-paid gas fee per refill (USDC base units), sold from the user's stock to FEE_WALLET in the same batch.
+    // Default $0.02, max $0.05. Live refills are refused while the fee is on and FEE_WALLET is empty.
+    gasFeeUsdc: gasFee(env.GAS_FEE_USDC),
+    feeWallet: feeWallet(env.FEE_WALLET),
     // Base Builder Code (public, from Base Dashboard). Tags refill user ops for attribution (ERC-8021). Empty = no tag.
     // A malformed code stops the server at start instead of being silently dropped.
     // Fair-price check on Bankr (FR-FPC-001): shared secret for POST /internal/checks, and the public endpoint URL

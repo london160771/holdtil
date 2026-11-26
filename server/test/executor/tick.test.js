@@ -32,8 +32,11 @@ function fakeExecutor(base, opts = {}) {
       s.lastSimCalls = calls;
       if (s.beforeSend) await s.beforeSend();
       if (!s.simulateOk) return { ok: false, error: 'reverted' };
-      const swap = decodeFunctionData({ abi: routerAbi, data: calls.at(-1).data });
-      return { ok: true, usdcOut: swap.args[0].amountOutMinimum + 1000n };
+      // First router call = the agent's sale; a second one = the gas fee sale (FR-RFL-006).
+      const [swap, feeSwap] = calls.filter((c) => getAddress(c.to) === getAddress(ADDRESSES.AERO_CL_SWAP_ROUTER)).map((c) => decodeFunctionData({ abi: routerAbi, data: c.data }).args[0]);
+      const res = { ok: true, usdcOut: swap.amountOutMinimum + 1000n };
+      if (feeSwap) res.feeOut = feeSwap.amountOutMinimum + (s.feeExtra ?? 10n);
+      return res;
     },
     sendRefill: async ({ calls, idempotencyKey }) => {
       s.sends.push({ calls, idempotencyKey });
@@ -552,5 +555,100 @@ describe('owner live run report #2 (2026-11-25): reference newer than the block-
     const ex = fakeExecutor(chain, { refAgeSec: -120n });
     expect(resultFor(await live(ex), agentId)).toMatchObject({ result: 'waited', code: 'price_stale' });
     expect(ex.s.sends).toHaveLength(0);
+  });
+});
+
+describe('live for all users + user-paid gas fee (FR-RFL-006)', () => {
+  const FEE_WALLET = '0x3333333333333333333333333333333333333333';
+  const feeConfig = { ...baseConfig, liveAll: true, liveUsers: [], liveMaxRefillUsdc: 25_000_000n, gasFeeUsdc: 20_000n, feeWallet: FEE_WALLET };
+  const routerCalls = (calls) => calls.filter((c) => getAddress(c.to) === getAddress(ADDRESSES.AERO_CL_SWAP_ROUTER)).map((c) => decodeFunctionData({ abi: routerAbi, data: c.data }).args[0]);
+
+  it('LIVE_USER_ADDRESSES=* makes any signed-in user live, under their own limits', async () => {
+    const { agentId } = await setupUser({ liveListed: false });
+    const ex = fakeExecutor(chain);
+    ex.checkRefill = async () => ({ status: 'complete', txHash: `0x${'b'.repeat(64)}`, usdcOut: 1_900_000n, feeOut: 20_100n });
+    expect(resultFor(await live(ex, new Date(), feeConfig), agentId)).toMatchObject({ result: 'confirmed' });
+    expect(ex.s.sends).toHaveLength(1);
+    const agent = await env.db.collection('agents').findOne({});
+    const [r] = await refillsOf(agentId);
+    // Agent payout + fee stays under the user's own per-refill max ($2 default), not the $25 site cap.
+    expect(BigInt(r.maxPayoutUsdc)).toBeLessThanOrEqual(BigInt(agent.maxPerRefillUsdc));
+    expect(r).toMatchObject({ usdcOut: '1900000', feeUsdcOut: '20100', feeWallet: FEE_WALLET });
+  });
+
+  it('the batch pulls agent + fee stock once, pays the agent first, then the fee wallet, each with a min-out', async () => {
+    const { agentId, wallet } = await setupUser({ liveListed: false });
+    const ex = fakeExecutor(chain, { approved: true });
+    await live(ex, new Date(), feeConfig);
+    const calls = ex.s.sends[0].calls;
+    const [main, fee] = routerCalls(calls);
+    expect(getAddress(main.recipient)).toBe(getAddress(wallet));
+    expect(getAddress(fee.recipient)).toBe(getAddress(FEE_WALLET));
+    expect(fee.amountOutMinimum).toBeGreaterThan(0n);
+    expect(fee.amountOutMinimum).toBeLessThanOrEqual(20_000n * 2n);
+    const { spendPermissionManagerAbi, erc20Abi } = await import('../../src/chain/abis.js');
+    const spend = decodeFunctionData({ abi: spendPermissionManagerAbi, data: calls[0].data });
+    const approve = decodeFunctionData({ abi: erc20Abi, data: calls[1].data });
+    expect(spend.args[1]).toBe(main.amountIn + fee.amountIn);
+    expect(approve.args[1]).toBe(main.amountIn + fee.amountIn);
+    const [r] = await refillsOf(agentId);
+    expect(r.feeStockAmount).toBe(String(fee.amountIn));
+    expect(r.feeMinOut).toBe(String(fee.amountOutMinimum));
+  });
+
+  it('fee on but FEE_WALLET empty: live refuses up front and sends nothing', async () => {
+    const { agentId } = await setupUser({ liveListed: false });
+    const ex = fakeExecutor(chain);
+    const res = resultFor(await live(ex, new Date(), { ...feeConfig, feeWallet: '' }), agentId);
+    expect(res).toMatchObject({ result: 'skipped', code: 'paused', reason: expect.stringMatching(/FEE_WALLET/) });
+    expect(ex.s.sends).toHaveLength(0);
+    expect(await refillsOf(agentId)).toHaveLength(0); // refused before any lock or record
+  });
+
+  it('a simulated fee below its min-out sends nothing', async () => {
+    const { agentId } = await setupUser({ liveListed: false });
+    const ex = fakeExecutor(chain, { feeExtra: -1n * 10n ** 9n });
+    expect(resultFor(await live(ex, new Date(), feeConfig), agentId)).toMatchObject({ code: 'simulation_failed' });
+    expect(ex.s.sends).toHaveLength(0);
+  });
+
+  it('a per-refill max too small for the fee blocks instead of selling', async () => {
+    const { a, agentId } = await setupUser({ liveListed: false });
+    await env.db.collection('agents').updateOne({}, { $set: { maxPerRefillUsdc: '20000' } });
+    const ex = fakeExecutor(chain);
+    expect(resultFor(await live(ex, new Date(), feeConfig), agentId)).toMatchObject({ code: 'limit_exceeded' });
+    expect(ex.s.sends).toHaveLength(0);
+    expect(a).toBeTruthy();
+  });
+
+  it('the site-wide cap still holds over a higher user limit', async () => {
+    const { agentId } = await setupUser({ liveListed: false });
+    await env.db.collection('agents').updateOne({}, { $set: { maxPerRefillUsdc: '25000000', targetUsdc: '50000000', dailyLimitUsdc: '50000000' } });
+    await env.db.collection('users').updateMany({}, { $set: { dailyLimitUsdc: '100000000' } });
+    const ex = fakeExecutor(chain);
+    await live(ex, new Date(), { ...feeConfig, liveMaxRefillUsdc: 1_500_000n });
+    const [r] = await refillsOf(agentId);
+    expect(BigInt(r.maxPayoutUsdc)).toBeLessThanOrEqual(1_500_000n);
+  });
+
+  it('a confirmed fee counts toward the daily limits', async () => {
+    const { spentToday } = await import('../../src/core/limits.js');
+    const nowSec = BigInt(Math.floor(Date.now() / 1000));
+    expect(spentToday([{ state: 'confirmed', createdAt: new Date(), plannedUsdc: '0', usdcOut: '1000000', feeUsdcOut: '20000' }], nowSec)).toBe(1_020_000n);
+  });
+
+  it('the batch builder refuses a fee wallet that is the agent, the user, the spender or a known contract', async () => {
+    await setupUser({ liveListed: false });
+    const doc = await env.db.collection('permissions').findOne({});
+    const { fromDb } = await import('../../src/routes/permissions.js');
+    const permission = fromDb(doc.permission);
+    const agentWallet = newUser().address;
+    const args = { stock: STOCKS.NVDAc, permission, signature: doc.signature, needsApproval: false, stockAmount: 1000n, minOut: 1n, deadline: 9_999_999_999n, spender: SPENDER, recipient: agentWallet };
+    for (const wallet of [agentWallet, permission.account, SPENDER, ADDRESSES.USDC, STOCKS.NVDAc.pool.address, 'nope']) {
+      expect(() => buildRefillCalls({ ...args, fee: { wallet, stockAmount: 10n, minOut: 1n } })).toThrow();
+    }
+    expect(() => buildRefillCalls({ ...args, fee: { wallet: FEE_WALLET, stockAmount: 0n, minOut: 1n } })).toThrow();
+    expect(() => buildRefillCalls({ ...args, fee: { wallet: FEE_WALLET, stockAmount: permission.allowance, minOut: 1n } })).toThrow();
+    expect(() => buildRefillCalls({ ...args, fee: { wallet: FEE_WALLET, stockAmount: 10n, minOut: 1n } })).not.toThrow();
   });
 });

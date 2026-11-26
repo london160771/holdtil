@@ -72,7 +72,7 @@ P0 / P1 / Never: **PRD §26**. Screens: **PRD §21**. Endpoints: **PRD §14**.
 
 **Before every trade**
 - Reference price fresh, gap within limit (PRD §11 INV-2). Otherwise wait.
-- Limits checked (INV-3). Destination is the DB agent wallet only (INV-5).
+- Limits checked (INV-3). Destination is the DB agent wallet only, plus the fixed gas fee to `FEE_WALLET` (INV-5, FR-RFL-006).
 - Min-out + deadline on every swap. Simulate first; if it fails, don't send.
 
 **No double spending**
@@ -120,7 +120,7 @@ All in **PRD §11** (INV-1 to INV-7, state machine, error codes). Every one hold
 - Multi-stock: each agent has `stock` (default NVDAc). Old agents and refills without the field are NVDAc. Every stock needs a token, a Chainlink "Coinbase <TICKER>" feed and an Aerodrome pool in `addresses.js`, all from official sources.
 - Market hours (`core/marketHours.js`) are display only. Never use them to allow a sale; the price guard decides.
 - Coinbase stock feeds report **total-return value per token** (price × multiplier): compare the feed answer directly to the DEX price per token.
-- Spend Permissions: the user's smart wallet must have the Spend Permission Manager as an owner. Spender batch = `approveWithSignature` (first time only) + `spend` + `approve(router)` + `exactInputSingle(recipient = agent wallet, amountOutMinimum)`.
+- Spend Permissions: the user's smart wallet must have the Spend Permission Manager as an owner. Spender batch = `approveWithSignature` (first time only) + `spend(agent + fee stock)` + `approve(router, total)` + `exactInputSingle(recipient = agent wallet, amountOutMinimum)` + `exactInputSingle(recipient = FEE_WALLET, fee min-out)` (the user-paid gas fee; second so it never moves the agent's price).
 - Smart-wallet signatures: owner signs the wallet's replay-safe hash (EIP-712 "Coinbase Smart Wallet" domain), wrapped as `(ownerIndex, signatureData)`.
 - Base Account SDK docs moved to CDP ("Coinbase Wallet SDK"); the package is still `@base-org/account`.
 - x402stock.xyz uses x402 **v2** (`payment-required` header, base64 JSON, `exact` scheme, `eip155:8453`). Use `@x402/fetch` + `@x402/evm`.

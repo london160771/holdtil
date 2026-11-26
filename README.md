@@ -157,7 +157,9 @@ await paidFetch('https://example.com/paid-api');
 // Nothing else changes. Add account.address as an agent in Holdtil.
 ```
 
-**Today's rollout limit:** real refills run only for accounts on the server's live list (`LIVE_USER_ADDRESSES`), at most $1 each. Every other account runs as a **dry run**: Holdtil checks the price, runs a test of the transaction, and logs "this is what I would have done" without sending anything. New accounts are added to the live list step by step (rollout step 5).
+**Rollout:** real refills run only for accounts on the server's live list (`LIVE_USER_ADDRESSES`). Every other account runs as a **dry run**: Holdtil checks the price, runs a test of the transaction, and logs "this is what I would have done" without sending anything. When the owner sets the list to `*`, every user is live under the limits they set, with a $25 site-wide cap per refill.
+
+**You pay your own gas.** Each refill also sells a small fixed gas fee ($0.02 by default, never more than $0.05) of the same stock, in the same transaction, to Holdtil's fee wallet. It counts toward your limits and shows on the receipt. Holdtil never holds your money; the fee only pays back the gas the spender spent on your refill.
 
 ## 8. Accounts: one person, one wallet, their own agents
 

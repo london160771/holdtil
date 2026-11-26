@@ -1,7 +1,7 @@
 // Live chain adapter for the executor (server/src/executor/tick.js). Reads with viem; simulates with
 // eth_simulateV1 on real Base state; sends ONLY through the CDP spender (chain/spender.js).
 import { createHash } from 'node:crypto';
-import { encodeFunctionData, decodeFunctionResult, getAddress, numberToHex, parseEventLogs, parseAbi } from 'viem';
+import { encodeFunctionData, decodeFunctionResult, getAddress, numberToHex, parseEventLogs, parseAbi, toEventSelector } from 'viem';
 import { ADDRESSES, isAllowlisted } from '../config/addresses.js';
 import { erc20Abi, factoryAbi, smartWalletAbi, spendPermissionManagerAbi } from './abis.js';
 import { readReference } from './priceFeed.js';
@@ -16,6 +16,8 @@ const userOpEventAbi = parseAbi([
   'event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, bool success, uint256 actualGasCost, uint256 actualGasUsed)',
 ]);
 
+const USER_OP_EVENT_TOPIC = toEventSelector(userOpEventAbi[0]).toLowerCase();
+
 /** CDP wants a UUID v4 idempotency key. Deterministic from the refill id, so a retry reuses it. */
 export function idempotencyUuid(refillId) {
   const h = createHash('sha256').update(`holdtil-refill:${refillId}`).digest();
@@ -29,28 +31,39 @@ export function idempotencyUuid(refillId) {
  * Reads our own user op's result from a bundle receipt: its success flag and the USDC the pool paid the agent.
  * Only pool → agent transfers count, so other user ops in the same bundle can't be mistaken for ours.
  */
-export function readUserOpResult(logs, { userOpHash, agentWallet, pool, spender }) {
+export function readUserOpResult(logs, { userOpHash, agentWallet, pool, spender, feeWallet }) {
   const ev = parseEventLogs({ abi: userOpEventAbi, logs, eventName: 'UserOperationEvent' }).find(
     (l) => l.args.userOpHash.toLowerCase() === userOpHash.toLowerCase(),
   );
   if (!ev) return { found: false };
   if (spender && getAddress(ev.args.sender) !== getAddress(spender)) return { found: false };
-  const usdcOut = parseEventLogs({ abi: transferAbi, logs, eventName: 'Transfer' })
-    .filter((l) => getAddress(l.address) === getAddress(ADDRESSES.USDC) && getAddress(l.args.from) === getAddress(pool) && getAddress(l.args.to) === getAddress(agentWallet))
-    .reduce((sum, l) => sum + l.args.value, 0n);
-  return { found: true, success: ev.args.success, usdcOut };
+  // Only logs from our own op count: in a bundle, each op's logs sit between the previous op's
+  // UserOperationEvent and its own (review 2026-11-26 #4: two refills in one bundle).
+  const isOpEvent = (l) => l.topics?.[0]?.toLowerCase() === USER_OP_EVENT_TOPIC;
+  const end = logs.findIndex((l) => isOpEvent(l) && l.topics?.[1]?.toLowerCase() === userOpHash.toLowerCase());
+  let begin = end - 1;
+  while (begin >= 0 && !isOpEvent(logs[begin])) begin -= 1;
+  const ours = end >= 0 ? logs.slice(begin + 1, end) : [];
+  const transfers = parseEventLogs({ abi: transferAbi, logs: ours, eventName: 'Transfer' });
+  const paidTo = (who) =>
+    transfers
+      .filter((l) => getAddress(l.address) === getAddress(ADDRESSES.USDC) && getAddress(l.args.from) === getAddress(pool) && getAddress(l.args.to) === getAddress(who))
+      .reduce((sum, l) => sum + l.args.value, 0n);
+  return { found: true, success: ev.args.success, usdcOut: paidTo(agentWallet), feeOut: feeWallet ? paidTo(feeWallet) : 0n };
 }
 const ANYONE = '0x000000000000000000000000000000000000dEaD';
 
 /**
  * Simulates the spender's executeBatch on real Base state. Deploys the spender in the simulation if it
- * has no code yet (CDP deploys it on the first real user operation). Returns the USDC the agent gains.
+ * has no code yet (CDP deploys it on the first real user operation). Returns the USDC the agent gains
+ * (usdcOut) and, when a fee wallet is given, the USDC the fee wallet gains (feeOut).
  */
-export async function simulateSpenderBatch(client, { spender, calls, agentWallet, dataSuffix, preBlocks = [], overrides = {} }) {
+export async function simulateSpenderBatch(client, { spender, calls, agentWallet, feeWallet, dataSuffix, preBlocks = [], overrides = {} }) {
   // preBlocks / overrides: test-only setup (e.g. funding a throwaway user wallet). Empty in production.
   const code = await client.getCode({ address: spender.address });
   const deployed = Boolean(code && code !== '0x');
-  const balanceCall = { from: ANYONE, to: ADDRESSES.USDC, data: encodeFunctionData({ abi: erc20Abi, functionName: 'balanceOf', args: [agentWallet] }) };
+  const balanceOf = (who) => ({ from: ANYONE, to: ADDRESSES.USDC, data: encodeFunctionData({ abi: erc20Abi, functionName: 'balanceOf', args: [who] }) });
+  const reads = feeWallet ? [balanceOf(agentWallet), balanceOf(feeWallet)] : [balanceOf(agentWallet)];
   const batch = {
     from: spender.ownerAddress,
     to: spender.address,
@@ -60,16 +73,18 @@ export async function simulateSpenderBatch(client, { spender, calls, agentWallet
   const setup = deployed ? [] : [{ from: ANYONE, to: ADDRESSES.SMART_WALLET_FACTORY, data: encodeFunctionData({ abi: factoryAbi, functionName: 'createAccount', args: [spender.ownersBytes, 0n] }) }];
   const r = await client.request({
     method: 'eth_simulateV1',
-    params: [{ blockStateCalls: [...preBlocks, { stateOverrides: { ...overrides, [spender.ownerAddress]: { balance: numberToHex(10n ** 17n) } }, calls: [...setup, balanceCall, batch, balanceCall] }], validation: false }, 'latest'],
+    params: [{ blockStateCalls: [...preBlocks, { stateOverrides: { ...overrides, [spender.ownerAddress]: { balance: numberToHex(10n ** 17n) } }, calls: [...setup, ...reads, batch, ...reads] }], validation: false }, 'latest'],
   });
   const out = r[r.length - 1].calls;
   const n = setup.length;
   if (setup.length && out[0].status !== '0x1') return { ok: false, error: 'spender deploy failed in simulation' };
-  const before = decodeFunctionResult({ abi: erc20Abi, functionName: 'balanceOf', data: out[n].returnData });
-  const b = out[n + 1];
+  const k = reads.length;
+  const bal = (i) => decodeFunctionResult({ abi: erc20Abi, functionName: 'balanceOf', data: out[i].returnData });
+  const b = out[n + k];
   if (b.status !== '0x1') return { ok: false, error: `batch reverted: ${b.error?.message ?? 'unknown'}` };
-  const after = decodeFunctionResult({ abi: erc20Abi, functionName: 'balanceOf', data: out[n + 2].returnData });
-  return { ok: true, usdcOut: after - before, gasUsed: BigInt(b.gasUsed) };
+  const res = { ok: true, usdcOut: bal(n + k + 1) - bal(n), gasUsed: BigInt(b.gasUsed) };
+  if (feeWallet) res.feeOut = bal(n + k + 2) - bal(n + 1);
+  return res;
 }
 
 export function executorChain(client, { spenderAddress, dataSuffix, loadSpenderFn = loadSpender }) {
@@ -81,7 +96,7 @@ export function executorChain(client, { spenderAddress, dataSuffix, loadSpenderF
     quoteSell: (stock, amount) => quoteSell(client, stock, amount),
     readPermissionStatus: (p, nowSec) => readPermissionStatus(client, p, nowSec),
     isApproved: (p) => client.readContract({ address: ADDRESSES.SPEND_PERMISSION_MANAGER, abi: spendPermissionManagerAbi, functionName: 'isApproved', args: [p] }),
-    simulateRefill: async ({ calls, agentWallet }) => simulateSpenderBatch(client, { spender: await loadSpenderFn(spenderAddress), calls, agentWallet, dataSuffix }),
+    simulateRefill: async ({ calls, agentWallet, feeWallet }) => simulateSpenderBatch(client, { spender: await loadSpenderFn(spenderAddress), calls, agentWallet, feeWallet, dataSuffix }),
     sendRefill: async ({ calls, idempotencyKey }) => {
       const s = await loadSpenderFn(spenderAddress);
       const op = { smartAccount: s.smartAccount, network: 'base', calls, idempotencyKey: idempotencyUuid(idempotencyKey) };
@@ -89,7 +104,7 @@ export function executorChain(client, { spenderAddress, dataSuffix, loadSpenderF
       const res = await s.cdp.evm.sendUserOperation(op);
       return { userOpHash: res.userOpHash };
     },
-    checkRefill: async ({ userOpHash, agentWallet, pool, timeoutSec }) => {
+    checkRefill: async ({ userOpHash, agentWallet, pool, feeWallet, timeoutSec }) => {
       if (!isAllowlisted(pool)) throw new Error('checkRefill needs an allowlisted pool');
       const s = await loadSpenderFn(spenderAddress);
       let res;
@@ -101,10 +116,10 @@ export function executorChain(client, { spenderAddress, dataSuffix, loadSpenderF
       }
       if (res.status === 'failed') return { status: 'failed', error: 'user operation failed' };
       const receipt = await client.getTransactionReceipt({ hash: res.transactionHash });
-      const op = readUserOpResult(receipt.logs, { userOpHash, agentWallet, pool, spender: s.address });
+      const op = readUserOpResult(receipt.logs, { userOpHash, agentWallet, pool, spender: s.address, feeWallet });
       if (!op.found) return { status: 'unknown', txHash: res.transactionHash }; // stays locked
       if (!op.success) return { status: 'failed', txHash: res.transactionHash, error: 'user operation reverted (nothing sold)' };
-      return { status: 'complete', txHash: res.transactionHash, usdcOut: op.usdcOut };
+      return { status: 'complete', txHash: res.transactionHash, usdcOut: op.usdcOut, feeOut: op.feeOut };
     },
   };
 }

@@ -86,12 +86,14 @@ async function todaySpend(db, { agentId, userId, excludeRefillId, nowSec }) {
 /**
  * Read-only checks (nothing written). Returns the full sale plan or the first reason to stop.
  */
-async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId, liveCap }) {
+async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId, liveCap, fee = null }) {
   const agentId = String(agent._id);
   const balance = await chain.readUsdcBalance(agent.walletAddress);
-  // Plan small enough that even the worst fair payout stays under the per-refill max (INV-3).
+  // Plan small enough that even the worst fair payout, gas fee included, stays under the per-refill max (INV-3).
   const maxPer = liveCap !== undefined && liveCap < toBig(agent.maxPerRefillUsdc) ? liveCap : toBig(agent.maxPerRefillUsdc);
-  const capForPlan = (maxPer * 10_000n) / (10_000n + EXECUTOR.bufferBps + EXECUTOR.maxGapBps + 10n);
+  const feeBound = fee ? upperBound(fee.usdc) : 0n;
+  if (maxPer <= feeBound) return stop('limit_exceeded', 'per-refill max is too small to cover the gas fee', { balance });
+  const capForPlan = ((maxPer - feeBound) * 10_000n) / (10_000n + EXECUTOR.bufferBps + EXECUTOR.maxGapBps + 10n);
   const need = planRefillUsdc({
     balanceUsdc: balance,
     floorUsdc: toBig(agent.floorUsdc),
@@ -112,39 +114,41 @@ async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId
   if (pStatus.status !== 'active') return stop('permission_revoked', `permission ${pStatus.status}`, { balance });
 
   const ref = await chain.readReference(stock);
+  const sizing = { refPrice: ref.answer > 0n ? ref.answer : 1n, tokenDecimals: stock.decimals, usdcDecimals: USDC_DECIMALS, priceDecimals: ref.decimals, bufferBps: EXECUTOR.bufferBps };
+  // Gas fee (FR-RFL-006): a fixed USDC amount, sold from the same stock in the same batch to the fee wallet.
+  // Sized at the reference price with no buffer, so the fee stays at GAS_FEE_USDC (review 2026-11-26 #3).
+  const feeStockAmount = fee && ref.answer > 0n ? stockAmountForUsdc({ usdc: fee.usdc, ...sizing, bufferBps: 0n }) : 0n;
   // Fit the refill to what the permission still allows today, instead of blocking (smaller refill, same rules).
   let plannedUsdc = need.usdc;
   if (ref.answer > 0n) {
-    const fits = (usdcValue({ stockAmount: pStatus.remaining, price: ref.answer, tokenDecimals: stock.decimals, usdcDecimals: USDC_DECIMALS, priceDecimals: ref.decimals }) * 10_000n) / (10_000n + EXECUTOR.bufferBps + 1n);
+    const left = pStatus.remaining > feeStockAmount ? pStatus.remaining - feeStockAmount : 0n;
+    const fits = (usdcValue({ stockAmount: left, price: ref.answer, tokenDecimals: stock.decimals, usdcDecimals: USDC_DECIMALS, priceDecimals: ref.decimals }) * 10_000n) / (10_000n + EXECUTOR.bufferBps + 1n);
     if (fits < plannedUsdc) plannedUsdc = fits;
     if (plannedUsdc < EXECUTOR.minRefillUsdc) return stop('allowance_exhausted', 'permission allowance left today is too small for a refill', { balance });
   }
-  const stockAmount = stockAmountForUsdc({
-    usdc: plannedUsdc,
-    refPrice: ref.answer > 0n ? ref.answer : 1n,
-    tokenDecimals: stock.decimals,
-    usdcDecimals: USDC_DECIMALS,
-    priceDecimals: ref.decimals,
-    bufferBps: EXECUTOR.bufferBps,
-  });
+  const stockAmount = stockAmountForUsdc({ usdc: plannedUsdc, ...sizing });
   // No quote → 0 → checkPrice turns it into a wait.
-  const quotedOut = await chain.quoteSell(stock, stockAmount).then((q) => q.amountOut, () => 0n);
-  const quotePrice = quotedOut > 0n
-    ? quotePriceFromSwap({ amountIn: stockAmount, amountOut: quotedOut, tokenDecimals: stock.decimals, usdcDecimals: USDC_DECIMALS, priceDecimals: ref.decimals })
-    : 0n;
-  const price = checkPrice({
-    refPrice: ref.answer,
-    refUpdatedAt: ref.updatedAt,
-    now: nowSec,
-    quotePrice,
-    maxPriceAgeSec: EXECUTOR.maxPriceAgeSec,
-    maxGapBps: EXECUTOR.maxGapBps,
-    maxFutureSkewSec: EXECUTOR.maxFutureSkewSec,
-    refDecimals: ref.decimals,
-    quoteDecimals: ref.decimals,
-    roundId: ref.roundId,
-    answeredInRound: ref.answeredInRound,
-  });
+  const quote = async (amount) => {
+    const out = await chain.quoteSell(stock, amount).then((q) => q.amountOut, () => 0n);
+    const qp = out > 0n ? quotePriceFromSwap({ amountIn: amount, amountOut: out, tokenDecimals: stock.decimals, usdcDecimals: USDC_DECIMALS, priceDecimals: ref.decimals }) : 0n;
+    return { out, qp };
+  };
+  const fair = (quotePrice) =>
+    checkPrice({
+      refPrice: ref.answer,
+      refUpdatedAt: ref.updatedAt,
+      now: nowSec,
+      quotePrice,
+      maxPriceAgeSec: EXECUTOR.maxPriceAgeSec,
+      maxGapBps: EXECUTOR.maxGapBps,
+      maxFutureSkewSec: EXECUTOR.maxFutureSkewSec,
+      refDecimals: ref.decimals,
+      quoteDecimals: ref.decimals,
+      roundId: ref.roundId,
+      answeredInRound: ref.answeredInRound,
+    });
+  const { out: quotedOut, qp: quotePrice } = await quote(stockAmount);
+  const price = fair(quotePrice);
   const facts = {
     balance,
     plannedUsdc,
@@ -159,7 +163,19 @@ async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId
 
   const common = { stockAmount, quotedOut, refPrice: ref.answer, tokenDecimals: stock.decimals, usdcDecimals: USDC_DECIMALS, priceDecimals: ref.decimals, maxGapBps: EXECUTOR.maxGapBps };
   const minOut = computeMinOut({ ...common, slippageBps: EXECUTOR.slippageBps });
-  const payout = maxPayoutUsdc(common);
+  let payout = maxPayoutUsdc(common);
+  // The fee sale follows the same fair-price rule (INV-2) and has its own min-out. Its worst payout counts in INV-3.
+  let feeFacts = {};
+  if (fee) {
+    const { out: feeQuotedOut, qp: feeQuotePrice } = await quote(feeStockAmount);
+    const feePrice = fair(feeQuotePrice);
+    if (!feePrice.ok) return stop(feePrice.code, `gas fee sale: ${feePrice.reason}`, facts);
+    const feeCommon = { ...common, stockAmount: feeStockAmount, quotedOut: feeQuotedOut };
+    // Fee min-out = reference floor only. The fee swap runs after the agent's swap has moved the pool, so a
+    // quote taken before it would make larger refills revert (review 2026-11-26 #1). Still fair-price bound (INV-2).
+    feeFacts = { feeStockAmount, feeQuotedOut, feeMinOut: computeMinOut({ ...feeCommon, quotedOut: 0n, slippageBps: EXECUTOR.slippageBps }), feeWallet: fee.wallet };
+    payout += maxPayoutUsdc(feeCommon);
+  }
   const spent = await todaySpend(db, { agentId, userId: String(user._id), excludeRefillId, nowSec });
   const limits = checkLimits({
     refillUsdc: payout,
@@ -168,11 +184,11 @@ async function evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId
     agentDailyLimitUsdc: toBig(agent.dailyLimitUsdc),
     userSpentTodayUsdc: spent.user,
     userDailyLimitUsdc: toBig(user.dailyLimitUsdc ?? '0'),
-    stockAmount,
+    stockAmount: stockAmount + feeStockAmount,
     allowanceRemaining: pStatus.remaining,
   });
-  if (!limits.ok) return stop(limits.code, limits.reason, { ...facts, minOut, maxPayoutUsdc: payout });
-  return { ok: true, needed: true, ...facts, minOut, maxPayoutUsdc: payout, permission, permDoc };
+  if (!limits.ok) return stop(limits.code, limits.reason, { ...facts, ...feeFacts, minOut, maxPayoutUsdc: payout });
+  return { ok: true, needed: true, ...facts, ...feeFacts, minOut, maxPayoutUsdc: payout, permission, permDoc };
 }
 
 /** Writes a waited/blocked decision unless the same reason was logged for this agent in the last hour. */
@@ -192,7 +208,7 @@ async function recordDecision(db, { agentId, tickId, now, code, reason, facts })
   return { logged: true, refillId: r.refillId };
 }
 
-const FACT_KEYS = ['stock', 'stockAmount', 'quotedOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'maxPayoutUsdc'];
+const FACT_KEYS = ['stock', 'stockAmount', 'quotedOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'maxPayoutUsdc', 'feeStockAmount', 'feeQuotedOut', 'feeMinOut', 'feeWallet'];
 function pick(facts) {
   const out = {};
   for (const k of FACT_KEYS) if (facts?.[k] !== undefined && facts[k] !== null) out[k] = facts[k];
@@ -207,14 +223,16 @@ async function settleSent(db, chain, refill, timeoutSec = 5) {
   // Refills from before multi-stock have no `stock`: they were all NVDAc.
   const stock = STOCKS[refill.stock ?? 'NVDAc'];
   if (!stock) return { refillId: refill.refillId, state: 'sent', alert: true, note: 'unknown stock on refill; check by hand' };
-  const res = await chain.checkRefill({ userOpHash: refill.userOpHash, agentWallet: agent.walletAddress, pool: stock.pool.address, timeoutSec });
+  const res = await chain.checkRefill({ userOpHash: refill.userOpHash, agentWallet: agent.walletAddress, pool: stock.pool.address, feeWallet: refill.feeWallet || undefined, timeoutSec });
   // Review fix (Checkpoint B #4): our user op succeeded but we can't see the USDC → stay locked and alert.
   // Never free the agent or count $0 when stock may have been sold.
   if (res.status === 'complete' && (typeof res.usdcOut !== 'bigint' || res.usdcOut <= 0n)) {
     return { refillId: refill.refillId, state: 'sent', alert: true, txHash: res.txHash, note: 'included on chain but no USDC seen at the agent wallet; check by hand' };
   }
   if (res.status === 'complete') {
-    await moveRefill(db, refill, 'confirmed', { fields: { txHash: res.txHash, usdcOut: res.usdcOut, confirmedAt: new Date().toISOString() } });
+    const fields = { txHash: res.txHash, usdcOut: res.usdcOut, confirmedAt: new Date().toISOString() };
+    if (refill.feeWallet && typeof res.feeOut === 'bigint') fields.feeUsdcOut = res.feeOut;
+    await moveRefill(db, refill, 'confirmed', { fields });
     return { refillId: refill.refillId, state: 'confirmed', txHash: res.txHash };
   }
   if (res.status === 'failed') {
@@ -230,10 +248,13 @@ async function toObjectId(id) {
   return ObjectId.isValid(id) ? new ObjectId(id) : null;
 }
 
-/** Full path for one agent. Returns a summary line. */
-/** Live only for owner-listed accounts (rollout step 4); everyone else runs as a dry run. */
+/**
+ * Live for every user when the owner sets LIVE_USER_ADDRESSES=* (rollout step 5), else only for listed
+ * accounts (step 4). Everyone else runs as a dry run.
+ */
 export function agentMode(mode, user, config) {
   if (mode !== 'live') return 'dry';
+  if (config.liveAll === true) return user?.address ? 'live' : 'dry';
   const allowed = (config.liveUsers ?? []).map((a) => a.toLowerCase());
   return user?.address && allowed.includes(user.address.toLowerCase()) ? 'live' : 'dry';
 }
@@ -243,8 +264,13 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
   const agentId = String(agent._id);
   let user = await loadUser(db, agent);
   const mode = agentMode(tickMode, user, config);
-  // Rollout cap (default $1) applies to dry runs too, so a dry run shows exactly what live would do.
+  // Site-wide cap (default $25) applies to dry runs too, so a dry run shows exactly what live would do.
   const liveCap = config.liveMaxRefillUsdc ?? 1_000_000n;
+  // User-paid gas fee (FR-RFL-006). On only when a fee wallet is set; live sends are refused without one (below).
+  const feeUsdc = config.gasFeeUsdc ?? 0n;
+  const fee = feeUsdc > 0n && config.feeWallet ? { usdc: feeUsdc, wallet: config.feeWallet } : null;
+  // Users pay their own gas: with the fee on, no live refill runs until the owner sets FEE_WALLET (review #5: refuse early).
+  if (mode === 'live' && feeUsdc > 0n && !fee) return { agentId, result: 'skipped', code: 'paused', reason: 'gas fee wallet (FEE_WALLET) is not set; live refills are off', alert: true };
   let nowSec = await chain.blockTime(); // fresh per agent (Checkpoint B #2)
   // Idempotency window per mode: a dry-run record never takes the id a live run needs (owner report 2026-11-25).
   const runId = `${tickId}:${mode}`;
@@ -262,7 +288,7 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
 
   if (!stock) return { agentId, result: 'skipped', code: 'paused', reason: 'agent stock is not supported', alert: true };
 
-  const plan = await evaluate({ db, chain, agent, user, stock, nowSec, liveCap });
+  const plan = await evaluate({ db, chain, agent, user, stock, nowSec, liveCap, fee });
   if (plan.ok && !plan.needed) return { agentId, result: 'not_needed' };
   if (!plan.ok) {
     const d = await recordDecision(db, { agentId, tickId: runId, now, code: plan.code, reason: plan.reason, facts: { ...plan, stock: stock.symbol } });
@@ -272,7 +298,7 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
   // INV-4 lock. A second tick for this agent gets refill_in_flight here.
   let refill;
   try {
-    refill = await createPlannedRefill(db, { agentId, tickId: runId, plannedUsdc: upperBound(plan.plannedUsdc), now });
+    refill = await createPlannedRefill(db, { agentId, tickId: runId, plannedUsdc: upperBound(plan.plannedUsdc) + (fee ? upperBound(fee.usdc) : 0n), now });
   } catch (e) {
     if (e?.code === 'refill_in_flight') return { agentId, result: 'skipped', code: 'refill_in_flight', reason: e.message };
     throw e;
@@ -289,7 +315,7 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
     user = agent ? await loadUser(db, agent) : null;
     if (!agent || !user || agent.status !== 'active' || user.stoppedAt) return await fail('paused', 'agent or owner changed during the tick');
     nowSec = await chain.blockTime();
-    const again = await evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId: refill.refillId, liveCap });
+    const again = await evaluate({ db, chain, agent, user, stock, nowSec, excludeRefillId: refill.refillId, liveCap, fee });
     if (!again.ok) return await fail(again.code, again.reason, pick(again));
     if (!again.needed) return await fail('refill_expired', 'balance is back above the floor; no longer needed', {});
     refill = await moveRefill(db, refill, 'checked', {
@@ -314,22 +340,31 @@ export async function processAgent({ db, chain, config, agent: agentIn, tickId, 
       recipient: agent.walletAddress,
       deadline: (await chain.blockTime()) + EXECUTOR.deadlineSec,
       spender: config.spenderAddress,
+      fee: fee ? { wallet: fee.wallet, stockAmount: again.feeStockAmount, minOut: again.feeMinOut } : undefined,
     });
 
     let sim;
     try {
-      sim = await chain.simulateRefill({ calls, agentWallet: agent.walletAddress });
+      sim = await chain.simulateRefill({ calls, agentWallet: agent.walletAddress, feeWallet: fee?.wallet });
     } catch (e) {
       sim = { ok: false, error: safeMessage(e, 'simulation error') };
     }
     if (!sim.ok || typeof sim.usdcOut !== 'bigint' || sim.usdcOut < again.minOut) {
       return await fail('simulation_failed', sim.error ? safeMessage(sim.error) : `simulated USDC ${sim.usdcOut ?? 'unknown'} below min-out`);
     }
-    refill = await moveRefill(db, refill, 'simulated', { at: at(), fields: { simulatedUsdcOut: sim.usdcOut } });
+    if (fee && (typeof sim.feeOut !== 'bigint' || sim.feeOut < again.feeMinOut)) {
+      return await fail('simulation_failed', `simulated gas fee ${sim.feeOut ?? 'unknown'} below its min-out`);
+    }
+    const simFields = { simulatedUsdcOut: sim.usdcOut };
+    if (fee) simFields.simulatedFeeOut = sim.feeOut;
+    refill = await moveRefill(db, refill, 'simulated', { at: at(), fields: simFields });
 
     if (mode !== 'live') {
-      return await fail('dry_run', `would sell ${again.stockAmount} ${stock.symbol} units for at least ${again.minOut} USDC units to ${agent.walletAddress}`);
+      const feeNote = fee ? `, plus ${again.feeStockAmount} units for the gas fee (at least ${again.feeMinOut} USDC units to ${fee.wallet})` : '';
+      return await fail('dry_run', `would sell ${again.stockAmount} ${stock.symbol} units for at least ${again.minOut} USDC units to ${agent.walletAddress}${feeNote}`);
     }
+    // Users pay their own gas: with the fee on, no live send happens until the owner sets FEE_WALLET.
+    if (feeUsdc > 0n && !fee) return await fail('paused', 'gas fee wallet (FEE_WALLET) is not set; live refills are off');
 
     // Last look at every control right before sending (INV-7), plus the live gate and cap (rollout step 4).
     const ctl = await readControls(db, chain, agent, again.permission, await chain.blockTime());

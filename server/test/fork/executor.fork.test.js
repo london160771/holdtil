@@ -123,6 +123,40 @@ describe('executor batch on Base mainnet state (eth_simulateV1, nothing sent)', 
     expect(() => calls({ stockAmount: ctx.permission.allowance + 1n })).toThrow(/allowance/);
   });
 
+  it('user-paid gas fee (FR-RFL-006): one batch pays the agent ≥ min-out and the fee wallet ≥ fee min-out', async () => {
+    const feeWallet = privateKeyToAccount(generatePrivateKey()).address;
+    const feeStock = stockAmountForUsdc({ usdc: 20_000n, refPrice: ctx.ref.answer, tokenDecimals: 8, usdcDecimals: 6, priceDecimals: ctx.ref.decimals, bufferBps: 0n });
+    // Same as the executor: fee min-out from the reference floor only (quotedOut 0n).
+    const feeMinOut = computeMinOut({ stockAmount: feeStock, quotedOut: 0n, refPrice: ctx.ref.answer, tokenDecimals: 8, usdcDecimals: 6, priceDecimals: ctx.ref.decimals, slippageBps: EXECUTOR.slippageBps, maxGapBps: EXECUTOR.maxGapBps });
+    const plain = await simulateSpenderBatch(client, { spender, calls: calls(), agentWallet: ctx.agentWallet, preBlocks: [ctx.fund], overrides: ctx.restore });
+    const r = await simulateSpenderBatch(client, { spender, calls: calls({ fee: { wallet: feeWallet, stockAmount: feeStock, minOut: feeMinOut } }), agentWallet: ctx.agentWallet, feeWallet, preBlocks: [ctx.fund], overrides: ctx.restore });
+    expect(r.ok).toBe(true);
+    expect(r.usdcOut).toBeGreaterThanOrEqual(ctx.minOut);
+    expect(r.usdcOut).toBe(plain.usdcOut); // the agent's sale runs first, so the fee never changes what the agent gets
+    expect(r.feeOut).toBeGreaterThanOrEqual(feeMinOut);
+    console.log('[fork] gas fee: sold', feeStock, 'NVDAc units → fee wallet USDC', r.feeOut, 'min-out', feeMinOut, 'gas', plain.gasUsed, '→', r.gasUsed);
+  });
+
+  it('bigger refill (most of the allowance) + fee: the fee still clears its min-out after the agent swap moves the pool', async () => {
+    const feeWallet = privateKeyToAccount(generatePrivateKey()).address;
+    const feeStock = stockAmountForUsdc({ usdc: 50_000n, refPrice: ctx.ref.answer, tokenDecimals: 8, usdcDecimals: 6, priceDecimals: ctx.ref.decimals, bufferBps: 0n });
+    const big = ctx.permission.allowance - feeStock;
+    const { amountOut: bigQuoted } = await quoteSell(client, stock, big);
+    const common = { refPrice: ctx.ref.answer, tokenDecimals: 8, usdcDecimals: 6, priceDecimals: ctx.ref.decimals, slippageBps: EXECUTOR.slippageBps, maxGapBps: EXECUTOR.maxGapBps };
+    const bigMin = computeMinOut({ ...common, stockAmount: big, quotedOut: bigQuoted });
+    const feeMinOut = computeMinOut({ ...common, stockAmount: feeStock, quotedOut: 0n });
+    const r = await simulateSpenderBatch(client, { spender, calls: calls({ stockAmount: big, minOut: bigMin, fee: { wallet: feeWallet, stockAmount: feeStock, minOut: feeMinOut } }), agentWallet: ctx.agentWallet, feeWallet, preBlocks: [ctx.fund], overrides: ctx.restore });
+    expect(r.ok).toBe(true);
+    expect(r.feeOut).toBeGreaterThanOrEqual(feeMinOut);
+    console.log('[fork] big refill: agent USDC', r.usdcOut, '+ fee', r.feeOut, 'fee min-out', feeMinOut);
+  });
+
+  it('gas fee min-out above what the pool pays → whole batch reverts, agent gets nothing either', async () => {
+    const feeWallet = privateKeyToAccount(generatePrivateKey()).address;
+    const r = await simulateSpenderBatch(client, { spender, calls: calls({ fee: { wallet: feeWallet, stockAmount: 1_000n, minOut: 10_000_000n } }), agentWallet: ctx.agentWallet, feeWallet, preBlocks: [ctx.fund], overrides: ctx.restore });
+    expect(r.ok).toBe(false);
+  });
+
   it('lab #7: destination is fixed to the agent wallet (user wallet / spender / contracts refused)', () => {
     for (const recipient of [ctx.userWallet, spender.address, ADDRESSES.AERO_CL_SWAP_ROUTER, stock.pool.address]) {
       expect(() => calls({ recipient })).toThrow();

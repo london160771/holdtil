@@ -67,6 +67,7 @@ export function TapeRow({ r }) {
         {!r.usdcOut && r.simulatedUsdcOut && <span>simulated {usd(r.simulatedUsdcOut)}</span>}
         {r.gapBps && <span>gap {(Number(r.gapBps) / 100).toFixed(2)}% from reference</span>}
         {r.minOut && <span>min-out {usd(r.minOut)}</span>}
+        {r.feeUsdcOut && <span>gas fee {usd(r.feeUsdcOut)}</span>}
         {r.code && <code>{r.code}</code>}
         {r.txHash && <TxLink hash={r.txHash} />}
       </div>
