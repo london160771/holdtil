@@ -11,7 +11,8 @@ import { tickRoutes } from './routes/tick.js';
 import { proofRoutes } from './routes/proof.js';
 import { checkRoutes } from './routes/checks.js';
 import { rateLimit } from './rateLimit.js';
-import { readBalance } from './chain/balances.js';
+import { readBalance, readDecimals } from './chain/balances.js';
+import { readReference } from './chain/priceFeed.js';
 import { permissionHash, readPermissionStatus, verifyPermissionSignature } from './chain/spendPermission.js';
 
 /** Chain functions the API uses, bound to one public client. Tests pass their own. */
@@ -31,6 +32,10 @@ export function chainDeps(client) {
     permissionHash,
     readPermissionStatus: (p, nowSec) => readPermissionStatus(client, p, nowSec),
     readUsdcBalance: (addr) => readBalance(client, ADDRESSES.USDC, addr),
+    // Display only ("earned while waiting", start price at permission signing). Never used to decide a sale.
+    readStockBalance: (token, holder) => readBalance(client, token, holder),
+    readReference: (stock) => readReference(client, stock),
+    readDecimals: (token) => readDecimals(client, token),
   };
 }
 

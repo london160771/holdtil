@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startDb, makeApp, newUser, signIn, signedPermission } from './helpers.js';
 import { ADDRESSES } from '../../src/config/addresses.js';
 import { permissionHash } from '../../src/chain/spendPermission.js';
+import { REFILLS } from '../../src/db/refills.js';
 
 let env;
 let app;
@@ -106,5 +107,36 @@ describe('spend permissions (FR-PRM-001/002)', () => {
     await a.post('/v1/permissions').send(await signedPermission(me));
     const b = await signIn(app, newUser());
     expect((await b.get('/v1/permissions')).body.permissions).toHaveLength(0);
+  });
+
+  it('earned while waiting: start price saved at signing; stock held + USDC paid out vs idle USDC', async () => {
+    const me = newUser();
+    const a = await signIn(app, me);
+    chain.state.price = 15_000_000_000n; // $150 at signing
+    await a.post('/v1/permissions').send(await signedPermission(me, { salt: 77n }));
+    const saved = await env.db.collection('permissions').findOne({ 'permission.account': me.address });
+    expect(saved).toMatchObject({ startRefPrice: '15000000000', startRefDecimals: 8 });
+    const agent = (await a.post('/v1/agents').send({ name: 'Bot', walletAddress: newUser().address })).body.agent;
+    await env.db.collection(REFILLS).insertOne({ refillId: 'e1', agentId: agent.id, state: 'confirmed', stockAmount: '1000000', usdcOut: '1550000', refPrice: '15500000000', createdAt: new Date(Date.now() + 1000), history: [] });
+    chain.state.stockBalances = new Map([[me.address.toLowerCase(), 1_000_000n]]);
+    chain.state.price = 16_500_000_000n; // $165 now
+    const { earned } = (await a.get('/v1/permissions')).body;
+    expect(earned).toEqual([expect.objectContaining({ symbol: 'NVDAc', status: 'ok', startSource: 'permission', idleUsdc: '3000000', keptUsdc: '3200000', earnedUsdc: '200000', soldStock: '1000000' })]);
+    chain.state.fail = true;
+    const down = (await a.get('/v1/permissions')).body.earned;
+    chain.state.fail = false;
+    expect(down[0].status).toBe('unavailable');
+    chain.state.price = undefined;
+  });
+
+  it('earned while waiting: an old permission without a start price uses the first refill', async () => {
+    const me = newUser();
+    const a = await signIn(app, me);
+    await a.post('/v1/permissions').send(await signedPermission(me, { salt: 78n }));
+    await env.db.collection('permissions').updateOne({ 'permission.account': me.address }, { $unset: { startRefPrice: '', startRefAt: '' } });
+    expect((await a.get('/v1/permissions')).body.earned[0]).toMatchObject({ status: 'no_start' });
+    const agent = (await a.post('/v1/agents').send({ name: 'Bot', walletAddress: newUser().address })).body.agent;
+    await env.db.collection(REFILLS).insertOne({ refillId: 'e2', agentId: agent.id, state: 'confirmed', stockAmount: '1000000', usdcOut: '1490000', refPrice: '15000000000', createdAt: new Date(), history: [] });
+    expect((await a.get('/v1/permissions')).body.earned[0]).toMatchObject({ status: 'ok', startSource: 'first_refill', startPrice: '15000000000' });
   });
 });

@@ -213,6 +213,14 @@ await paidFetch('https://example.com/paid-api');
 
 Scout's first payment was funded by a manual 0.10 USDC transfer, because that day's permission was already used. Holdtil's refills of Scout follow and show up on `/proof`.
 
+**The guard saying "no" on mainnet, live.** On 2026-11-26 (US Thanksgiving, stock market closed) the owner ran a live tick. An agent's float was low, so Holdtil wanted to refill it. But the NVDA reference price was almost 12 hours old, so Holdtil refused to sell and waited. No transaction was sent.
+
+| Time (UTC) | Mode | Agent result | Why |
+|---|---|---|---|
+| 2026-11-26 12:11 | Live (real money allowed) | `waited` · `price_stale` | "reference is 42846s old" (about 11.9 h). Tick `t5985650`, refill `2513bd27…cf1`. The other agent: `not_needed`. |
+
+This is the core rule working for real: never sell your stock unless the price is fresh and fair. Otherwise wait.
+
 **"Break it" tests.** Each attack or bad moment has a test that proves nothing is sent (`server/test/executor/tick.test.js`, `server/test/core/`, `server/test/db/`):
 
 | Bad moment | Result the tests prove |

@@ -15,7 +15,7 @@
 | Date | Idea | Why it came up | Why parked | Value later (H/M/L) |
 |---|---|---|---|---|
 | 2026-11-24 | USDC reserve fallback when stock price is unfair and float is critical | Weekend gaps | P1 (FR-RSV-001) | H |
-| 2026-11-24 | More stocks (AAPLc, GOOGLc, METAc, others) | User choice | P1 (FR-STK-001) | M |
+| 2026-11-26 | Even more stocks: MSTRc, SPCXc, SNDKc also have a feed and a pool (checked 2026-11-26) | Multi-stock build | Kept to six well-known names for launch | L |
 | 2026-11-24 | Alerts by email/Telegram | Owners want to know about waits | P1 (FR-ALR-001) | M |
 | 2026-11-24 | SDK / plugins for agent frameworks (ElizaOS, AgentKit, Bankr) | Easier adoption | Zero-integration is enough for v1 | H |
 | 2026-11-24 | Agents that earn: sweep agent income into stocks (receive side) | Research-to-Treasury does this | Out of scope; spending side only | M |

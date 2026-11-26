@@ -2,11 +2,10 @@
 // eth_simulateV1 on real Base state; sends ONLY through the CDP spender (chain/spender.js).
 import { createHash } from 'node:crypto';
 import { encodeFunctionData, decodeFunctionResult, getAddress, numberToHex, parseEventLogs, parseAbi, toEventSelector } from 'viem';
-import { ADDRESSES } from '../config/addresses.js';
+import { ADDRESSES, isAllowlisted } from '../config/addresses.js';
 import { erc20Abi, factoryAbi, smartWalletAbi, spendPermissionManagerAbi } from './abis.js';
 import { readReference } from './priceFeed.js';
 import { readBalance, readDecimals } from './balances.js';
-import { STOCKS } from '../config/addresses.js';
 import { quoteSell } from './quote.js';
 import { readPermissionStatus } from './spendPermission.js';
 import { loadSpender } from './spender.js';
@@ -105,7 +104,8 @@ export function executorChain(client, { spenderAddress, dataSuffix, loadSpenderF
       const res = await s.cdp.evm.sendUserOperation(op);
       return { userOpHash: res.userOpHash };
     },
-    checkRefill: async ({ userOpHash, agentWallet, feeWallet, timeoutSec }) => {
+    checkRefill: async ({ userOpHash, agentWallet, pool, feeWallet, timeoutSec }) => {
+      if (!isAllowlisted(pool)) throw new Error('checkRefill needs an allowlisted pool');
       const s = await loadSpenderFn(spenderAddress);
       let res;
       try {
@@ -116,7 +116,7 @@ export function executorChain(client, { spenderAddress, dataSuffix, loadSpenderF
       }
       if (res.status === 'failed') return { status: 'failed', error: 'user operation failed' };
       const receipt = await client.getTransactionReceipt({ hash: res.transactionHash });
-      const op = readUserOpResult(receipt.logs, { userOpHash, agentWallet, pool: STOCKS.NVDAc.pool.address, spender: s.address, feeWallet });
+      const op = readUserOpResult(receipt.logs, { userOpHash, agentWallet, pool, spender: s.address, feeWallet });
       if (!op.found) return { status: 'unknown', txHash: res.transactionHash }; // stays locked
       if (!op.success) return { status: 'failed', txHash: res.transactionHash, error: 'user operation reverted (nothing sold)' };
       return { status: 'complete', txHash: res.transactionHash, usdcOut: op.usdcOut, feeOut: op.feeOut };

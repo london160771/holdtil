@@ -88,7 +88,7 @@ function Shell() {
           <Route path="/" element={me?.user ? <Navigate to={me.user.onboarded ? '/app' : '/start'} replace /> : <Landing onSignedIn={reload} />} />
           <Route path="/start" element={gate(<Start me={me} reload={reload} />)} />
           <Route path="/app" element={gate(me?.user?.onboarded === false ? <Navigate to="/start" replace /> : <Dashboard me={me} reload={reload} />)} />
-          <Route path="/app/agents/:id" element={gate(<Agent />)} />
+          <Route path="/app/agents/:id" element={gate(<Agent me={me} />)} />
           <Route path="/proof" element={<Proof />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="*" element={<p className="empty">Page not found. <Link to="/">Go home</Link></p>} />

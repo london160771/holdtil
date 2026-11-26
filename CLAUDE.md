@@ -117,6 +117,8 @@ All in **PRD §11** (INV-1 to INV-7, state machine, error codes). Every one hold
 - Render free tier sleeps; the tick must be safe to run late or twice.
 - **B20 stocks are precompiles.** No bytecode (code `0xef`). Anvil forks can't run them (`OpcodeNotFound`). Test B20 flows with `eth_simulateV1` on a real Base node (see `server/scripts/gate0/spend-batch-sim.js`).
 - NVDAc has **8 decimals**, USDC 6, the NVDA feed 8. Read decimals on chain anyway.
+- Multi-stock: each agent has `stock` (default NVDAc). Old agents and refills without the field are NVDAc. Every stock needs a token, a Chainlink "Coinbase <TICKER>" feed and an Aerodrome pool in `addresses.js`, all from official sources.
+- Market hours (`core/marketHours.js`) are display only. Never use them to allow a sale; the price guard decides.
 - Coinbase stock feeds report **total-return value per token** (price × multiplier): compare the feed answer directly to the DEX price per token.
 - Spend Permissions: the user's smart wallet must have the Spend Permission Manager as an owner. Spender batch = `approveWithSignature` (first time only) + `spend(agent + fee stock)` + `approve(router, total)` + `exactInputSingle(recipient = agent wallet, amountOutMinimum)` + `exactInputSingle(recipient = FEE_WALLET, fee min-out)` (the user-paid gas fee; second so it never moves the agent's price).
 - Smart-wallet signatures: owner signs the wallet's replay-safe hash (EIP-712 "Coinbase Smart Wallet" domain), wrapped as `(ownerIndex, signatureData)`.

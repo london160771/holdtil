@@ -47,13 +47,14 @@ function fakeExecutor(base, opts = {}) {
   return ex;
 }
 
-async function setupUser({ permission = true, liveListed = true, allowance } = {}) {
+async function setupUser({ permission = true, liveListed = true, allowance, stock, permissionToken } = {}) {
   const me = newUser();
   if (liveListed) liveConfig.liveUsers.push(me.address);
   const a = await signIn(app, me);
   const wallet = newUser().address;
-  const res = await a.post('/v1/agents').send({ name: 'Bot', walletAddress: wallet });
-  if (permission) await a.post('/v1/permissions').send(await signedPermission(me, allowance ? { allowance } : {}));
+  const res = await a.post('/v1/agents').send({ name: 'Bot', walletAddress: wallet, ...(stock ? { stock } : {}) });
+  const patch = { ...(allowance ? { allowance } : {}), ...(permissionToken ? { token: permissionToken } : {}) };
+  if (permission) await a.post('/v1/permissions').send(await signedPermission(me, patch));
   return { me, a, agentId: res.body.agent.id, wallet };
 }
 
@@ -106,6 +107,46 @@ describe('executor happy paths', () => {
     const [r] = await refillsOf(agentId);
     expect(r).toMatchObject({ state: 'confirmed', usdcOut: '1900000', userOpHash: ex.s.sends.length && `0x${'1'.padStart(64, 'a')}` });
     expect(ex.s.sends[0].idempotencyKey).toBe(r.refillId);
+  });
+
+  it('multi-stock: an AAPLc agent sells AAPLc through the AAPLc pool and records the stock', async () => {
+    const { agentId, wallet } = await setupUser({ stock: 'AAPLc', permissionToken: STOCKS.AAPLc.address });
+    const ex = fakeExecutor(chain);
+    const seen = [];
+    const q = ex.quoteSell;
+    ex.quoteSell = async (stock, amount) => (seen.push(stock.symbol), q(stock, amount));
+    let pool;
+    ex.checkRefill = async (p) => ((pool = p.pool), { status: 'complete', txHash: `0x${'b'.repeat(64)}`, usdcOut: 1_900_000n });
+    const sum = await live(ex);
+    expect(resultFor(sum, agentId)).toMatchObject({ result: 'confirmed' });
+    const calls = ex.s.sends[0].calls;
+    expect(getAddress(calls[2].to)).toBe(getAddress(STOCKS.AAPLc.address)); // approve(router) on AAPLc
+    const swap = decodeFunctionData({ abi: routerAbi, data: calls[3].data }).args[0];
+    expect(getAddress(swap.tokenIn)).toBe(getAddress(STOCKS.AAPLc.address));
+    expect(getAddress(swap.recipient)).toBe(getAddress(wallet));
+    expect(seen.every((x) => x === 'AAPLc')).toBe(true);
+    expect(pool).toBe(STOCKS.AAPLc.pool.address); // USDC counted only from the AAPLc pool
+    const [r] = await refillsOf(agentId);
+    expect(r).toMatchObject({ state: 'confirmed', stock: 'AAPLc' });
+  });
+
+  it('multi-stock: a TSLAc agent with only an NVDAc permission waits, sells nothing', async () => {
+    const { agentId } = await setupUser({ stock: 'TSLAc' });
+    const ex = fakeExecutor(chain);
+    const sum = await live(ex);
+    expect(resultFor(sum, agentId)).toMatchObject({ code: 'permission_revoked' });
+    expect(ex.s.sends).toHaveLength(0);
+    const [r] = await refillsOf(agentId);
+    expect(r.stock).toBe('TSLAc');
+  });
+
+  it('multi-stock: wrong decimals on any stock in use → nothing is sold this tick', async () => {
+    await setupUser({ stock: 'METAc', permissionToken: STOCKS.METAc.address });
+    const ex = fakeExecutor(chain);
+    ex.readDecimals = async (t) => (getAddress(t) === getAddress(STOCKS.METAc.address) ? 18 : 8);
+    const sum = await live(ex);
+    expect(sum.error).toBe('decimals_mismatch');
+    expect(ex.s.sends).toHaveLength(0);
   });
 
   it('no refill when the float is above the floor', async () => {

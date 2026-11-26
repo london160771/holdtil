@@ -25,6 +25,7 @@ export default function Start({ me, reload }) {
   const onboarded = me.user.onboarded;
   const hasAgent = me.totals.agents > 0;
   const [skipAgent, setSkipAgent] = useState(false);
+  const [agentStock, setAgentStock] = useState(null);
   const step = !onboarded ? 1 : !hasAgent && !skipAgent ? 2 : 3;
 
   const onboard = async (e) => {
@@ -60,15 +61,17 @@ export default function Start({ me, reload }) {
       <Step n={2} title="Add your agent" done={hasAgent} active={step === 2}>
         <AgentForm
           submitLabel="Add agent"
+          stocks={me?.chain?.stocks}
           onSubmit={async (body) => {
             await api('/v1/agents', { method: 'POST', body });
+            if (body.stock) setAgentStock(body.stock);
             await reload();
           }}
         />
         <button type="button" className="btn btn-link px-0 mt-2" onClick={() => setSkipAgent(true)}>Skip for now</button>
       </Step>
       <Step n={3} title="Sign a spend permission" done={false} active={step === 3}>
-        <GrantPermission me={me} onDone={() => navigate('/app')} />
+        <GrantPermission key={agentStock ?? 'default'} me={me} defaultSymbol={agentStock} onDone={() => navigate('/app')} />
         <button type="button" className="btn btn-link px-0 mt-2" onClick={() => navigate('/app')}>Skip for now</button>
       </Step>
       </ol>
