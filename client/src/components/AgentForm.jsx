@@ -9,8 +9,9 @@ const FIELDS = [
 ];
 
 /** Add or edit an agent. initial = agent from the API (money as base-unit strings) or null for a new one. */
-export default function AgentForm({ initial, onSubmit, submitLabel }) {
+export default function AgentForm({ initial, onSubmit, submitLabel, stocks = [] }) {
   const [name, setName] = useState(initial?.name ?? '');
+  const [stock, setStock] = useState(initial?.stock ?? stocks[0]?.symbol ?? '');
   const [wallet, setWallet] = useState('');
   const [money, setMoney] = useState(() =>
     Object.fromEntries(FIELDS.map(([k]) => [k, initial?.[k] ? unitsToUsdInput(initial[k]) : ''])),
@@ -25,6 +26,7 @@ export default function AgentForm({ initial, onSubmit, submitLabel }) {
     try {
       const body = { name: name.trim() };
       if (!initial) body.walletAddress = wallet.trim();
+      if (stocks.length > 0 && stock && stock !== initial?.stock) body.stock = stock;
       for (const [k] of FIELDS) if (money[k] !== '') body[k] = usdToUnits(money[k]);
       await onSubmit(body);
     } catch (err) {
@@ -45,6 +47,17 @@ export default function AgentForm({ initial, onSubmit, submitLabel }) {
           <label className="form-label" htmlFor="agent-wallet">Agent wallet address (where USDC is sent)</label>
           <input id="agent-wallet" className="form-control font-monospace" value={wallet} onChange={(e) => setWallet(e.target.value)} placeholder="0x…" required />
           <div className="form-text">This cannot be changed later. Holdtil only ever sends USDC here.</div>
+        </div>
+      )}
+      {stocks.length > 1 && (
+        <div>
+          <label className="form-label" htmlFor="agent-stock">Pay from this stock</label>
+          <select id="agent-stock" className="form-select" value={stock} onChange={(e) => setStock(e.target.value)}>
+            {stocks.map((s) => (
+              <option key={s.symbol} value={s.symbol}>{s.name ? `${s.symbol} · ${s.name}` : s.symbol}</option>
+            ))}
+          </select>
+          <div className="form-text">Holdtil sells this stock to refill the agent. You need a spend permission for it.</div>
         </div>
       )}
       <div className="row g-3 align-items-end">

@@ -20,6 +20,8 @@ describe('GET /v1/proof (public)', () => {
     const res = await request(app).get('/v1/proof');
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ scout: { address: scout, usdcBalance: '0' }, payments: [], refills: [], totals: { payments: 0, refills: 0 } });
+    expect(typeof res.body.market.open).toBe('boolean');
+    expect(res.body.market).toHaveProperty('nextOpenAt');
   });
 
   it("shows Scout's payments and the refills of Scout's agent only, without user ids", async () => {
@@ -33,7 +35,7 @@ describe('GET /v1/proof (public)', () => {
       { refillId: 'p2', agentId: other.id, state: 'confirmed', usdcOut: '5', createdAt: new Date(), history: [] },
     ]);
     await env.db.collection('scoutRuns').insertMany([
-      { runId: 'r1', status: 'paid', costUsdc: '30000', x402TxHash: `0x${'d'.repeat(64)}`, summary: 'US market open', createdAt: new Date() },
+      { runId: 'r1', status: 'paid', costUsdc: '30000', x402TxHash: `0x${'d'.repeat(64)}`, summary: 'US market open', url: 'https://x402stock.xyz/api/v1/market-pulse', payTo: '0x3070Fbb3803819fB5BdfE9286fdc6325A877fA85', createdAt: new Date() },
       { runId: 'r2', status: 'pending', costUsdc: '30000', createdAt: new Date() },
     ]);
     chain.state.balances.set(scout, 1_500_000n);
@@ -41,9 +43,10 @@ describe('GET /v1/proof (public)', () => {
     expect(res.body.refills).toHaveLength(1);
     expect(res.body.refills[0]).toMatchObject({ state: 'confirmed', usdcOut: '988785', txHash: TX });
     expect(res.body.refills[0].agentId).toBeUndefined();
-    expect(res.body.payments).toEqual([expect.objectContaining({ status: 'paid', costUsdc: '30000', summary: 'US market open' })]);
+    expect(res.body.payments).toEqual([expect.objectContaining({ status: 'paid', costUsdc: '30000', summary: 'US market open', seller: 'x402stock.xyz', item: 'market-pulse' })]);
     expect(res.body.totals).toMatchObject({ payments: 1, paidUsdc: '30000', refills: 1, refilledUsdc: '988785' });
     expect(res.body.scout.usdcBalance).toBe('1500000');
+    expect(res.body.earned).toEqual([]); // owner has no permission in this test
     expect(JSON.stringify(res.body)).not.toContain(owner.address.toLowerCase());
   });
 
@@ -53,6 +56,13 @@ describe('GET /v1/proof (public)', () => {
     const fake = (await intruder.post('/v1/agents').send({ name: 'Fake scout', walletAddress: scout })).body.agent;
     await env.db.collection(REFILLS).insertOne({ refillId: 'x1', agentId: fake.id, state: 'confirmed', usdcOut: '999', createdAt: new Date(), history: [] });
     expect((await request(app).get('/v1/proof')).body.refills).toHaveLength(before);
+  });
+
+  it('spending log: seller and item come only from a real https URL', async () => {
+    const { whatWasBought } = await import('../../src/routes/proof.js');
+    expect(whatWasBought('https://x402stock.xyz/api/v1/market-pulse')).toEqual({ seller: 'x402stock.xyz', item: 'market-pulse' });
+    expect(whatWasBought(undefined)).toEqual({ seller: null, item: null });
+    expect(whatWasBought('javascript:alert(1)')).toEqual({ seller: null, item: null });
   });
 
   it('chain down → balance "unavailable", never a guess', async () => {

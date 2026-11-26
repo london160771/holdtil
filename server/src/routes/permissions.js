@@ -6,6 +6,7 @@ import { HoldtilError } from '../errors.js';
 import { requireUser, requireOnboarded } from '../auth/session.js';
 import { STOCKS } from '../config/addresses.js';
 import { PERMISSION_RULES } from '../config/limits.js';
+import { earnedForUser } from '../services/earned.js';
 
 const invalid = (msg) => new HoldtilError('permission_invalid', msg, { status: 400 });
 const STOCK_BY_ADDRESS = new Map(Object.values(STOCKS).map((s) => [s.address.toLowerCase(), s]));
@@ -73,7 +74,16 @@ export function permissionRoutes({ db, config, chain }) {
     }
     if (!ok) throw invalid('the signature does not match this permission and account');
     const hash = chain.permissionHash(permission);
+    // Start price for "earned while waiting" (display only). A failed read just leaves it out.
+    let start = {};
+    try {
+      const ref = await chain.readReference(STOCK_BY_ADDRESS.get(permission.token.toLowerCase()));
+      if (ref.answer > 0n) start = { startRefPrice: ref.answer.toString(), startRefAt: new Date(), startRefDecimals: ref.decimals };
+    } catch {
+      start = {};
+    }
     const doc = {
+      ...start,
       userId: String(req.user._id),
       permission: toDb(permission),
       token: permission.token,
@@ -108,7 +118,13 @@ export function permissionRoutes({ db, config, chain }) {
         return { permissionHash: d.permissionHash, symbol: d.symbol, ...d.permission, createdAt: d.createdAt, ...live };
       }),
     );
-    res.json({ permissions: out });
+    let earned;
+    try {
+      earned = await earnedForUser({ db, chain, userId: String(req.user._id), userAddress: req.user.address });
+    } catch {
+      earned = 'unavailable';
+    }
+    res.json({ permissions: out, earned });
   });
 
   return r;

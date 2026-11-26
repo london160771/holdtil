@@ -19,6 +19,21 @@ export const ADDRESSES = Object.freeze({
   //          https://docs.chain.link/data-feeds/price-feeds/addresses?network=base (path cbnvda-usd)
   NVDA_USD_FEED: '0x04689a41629776563E6822F76f2e57D148d28513',
 
+  // More Coinbase Tokenized Stocks with a Chainlink "Coinbase <TICKER>" feed (owner-approved 2026-11-26, PRD §16).
+  // Sources: https://api.coinbase.com/v1/tokenized-stocks (symbol, address, decimals 8)
+  //          https://api.coinbase.com/v1/tokenized-stocks/nav-feeds (token → feed)
+  // Checked on chain 2026-11-26: decimals() = 8 for each token; feed description() = "Coinbase <TICKER>", 8 decimals.
+  AAPLc: '0xb200000000000000000000C2e324d24d7eEcd1fb',
+  AAPL_USD_FEED: '0x787f13dEa48Db0897CbCDD985de77809D837F988',
+  TSLAc: '0xb2000000000000000000001e800a7f5189430cD0',
+  TSLA_USD_FEED: '0xFaf869185383a24F8cb00e27BdA6b63B9905DCb4',
+  METAc: '0xb2000000000000000000008bC8786B856E61707C',
+  META_USD_FEED: '0x6526aE6797A76123638b863AeE4dD27Ba4E4b27D',
+  GOOGLc: '0xb2000000000000000000002D0BA3164cc74f58B7',
+  GOOGL_USD_FEED: '0x5bF49E0ffA937CE2FfF033c739aD7C634c4D34F2',
+  MSFTc: '0xB200000000000000000000Ab99cFa739E253872B',
+  MSFT_USD_FEED: '0xeB10A6c9aa7E537aEd766C08c35Dae35B321b18c',
+
   // Spend Permission Manager + its ERC-6492 validator (same address on all chains).
   // Source: https://github.com/coinbase/spend-permissions#deployments
   //         (linked from https://docs.cdp.coinbase.com/coinbase-wallet/improve-ux/spend-permissions)
@@ -45,18 +60,33 @@ export const POOLS = Object.freeze({
     tickSpacing: 10,
     fee: 500, // 0.05%, read from pool.fee()
   },
+  // Same factory, tickSpacing 10, fee 500 (read from pool.fee()). USDC in pool on 2026-11-26 (balanceOf):
+  // AAPLc 46.8k, TSLAc 19.7k, METAc 16.9k, GOOGLc 11.8k, MSFTc 7.6k. $1–$25 sell quotes were 18–59 bps from Chainlink.
+  AAPLc_USDC: { address: '0xA3b1E3f9747065e2073722Ff4c9027d3eA4994F0', factory: ADDRESSES.AERO_CL_FACTORY, tickSpacing: 10, fee: 500 },
+  TSLAc_USDC: { address: '0x469337fDcc5E8f38e2E4B670B04F57865D13a7BB', factory: ADDRESSES.AERO_CL_FACTORY, tickSpacing: 10, fee: 500 },
+  METAc_USDC: { address: '0xEAF57753BC382E0324a1D43F72E7027705a2273E', factory: ADDRESSES.AERO_CL_FACTORY, tickSpacing: 10, fee: 500 },
+  GOOGLc_USDC: { address: '0xB1987CAD1682841b4b641d50E520777eC5Ab5542', factory: ADDRESSES.AERO_CL_FACTORY, tickSpacing: 10, fee: 500 },
+  MSFTc_USDC: { address: '0x7103eB3c9590d1281f7dc03b2A9EE27C39dF5D54', factory: ADDRESSES.AERO_CL_FACTORY, tickSpacing: 10, fee: 500 },
 });
 
-// Stock tokens Holdtil may sell (PRD §26: NVDAc first; more are P1).
+// Stock tokens Holdtil may sell. NVDAc is the default; the rest were added 2026-11-26 (PRD §16, FR-STK-001).
+// decimals: read on chain; money paths re-read decimals on chain every tick.
 export const STOCKS = Object.freeze({
-  NVDAc: {
-    symbol: 'NVDAc',
-    address: ADDRESSES.NVDAc,
-    decimals: 8, // read on chain 2026-11-24; for display only — money paths re-read decimals on chain
-    feed: ADDRESSES.NVDA_USD_FEED,
-    pool: POOLS.NVDAc_USDC,
-  },
+  NVDAc: { symbol: 'NVDAc', name: 'NVIDIA', address: ADDRESSES.NVDAc, decimals: 8, feed: ADDRESSES.NVDA_USD_FEED, pool: POOLS.NVDAc_USDC },
+  AAPLc: { symbol: 'AAPLc', name: 'Apple', address: ADDRESSES.AAPLc, decimals: 8, feed: ADDRESSES.AAPL_USD_FEED, pool: POOLS.AAPLc_USDC },
+  TSLAc: { symbol: 'TSLAc', name: 'Tesla', address: ADDRESSES.TSLAc, decimals: 8, feed: ADDRESSES.TSLA_USD_FEED, pool: POOLS.TSLAc_USDC },
+  METAc: { symbol: 'METAc', name: 'Meta', address: ADDRESSES.METAc, decimals: 8, feed: ADDRESSES.META_USD_FEED, pool: POOLS.METAc_USDC },
+  GOOGLc: { symbol: 'GOOGLc', name: 'Alphabet', address: ADDRESSES.GOOGLc, decimals: 8, feed: ADDRESSES.GOOGL_USD_FEED, pool: POOLS.GOOGLc_USDC },
+  MSFTc: { symbol: 'MSFTc', name: 'Microsoft', address: ADDRESSES.MSFTc, decimals: 8, feed: ADDRESSES.MSFT_USD_FEED, pool: POOLS.MSFTc_USDC },
 });
+
+export const DEFAULT_STOCK = 'NVDAc';
+
+/** The stock an agent is refilled from. Old agents have no field = NVDAc. Unknown symbol → null (fail closed). */
+export function stockOf(agent) {
+  const sym = agent?.stock ?? DEFAULT_STOCK;
+  return Object.hasOwn(STOCKS, sym) ? STOCKS[sym] : null;
+}
 
 const allowed = new Set(
   [...Object.values(ADDRESSES), ...Object.values(POOLS).map((p) => p.address)].map((a) => a.toLowerCase()),

@@ -3,7 +3,7 @@
 > Where the project actually stands. A progress log, not requirements (those live in `PRD.md`).
 > Update at the end of every phase. Only write what was verified. If this file and the repo disagree, the repo wins.
 
-**Last updated:** 2026-11-25 15:10 WAT · **By:** Claude · **Commit:** see §2 / §10
+**Last updated:** 2026-11-26 13:40 WAT · **By:** Claude · **Commit:** see §2 / §10
 
 ---
 
@@ -26,6 +26,17 @@
   7. **Your approval of the first real refill:** `holdtil refill`. On a weekday in US market hours it should sell; nights, weekends and US holidays it should wait.
 - *How to check it worked:* the agent reports the tx hash; the USDC lands in the Bankr wallet; `/proof` lists the check. Paste the tx hash and a screenshot of the chat in the thread.
 - *What happens next:* Claude verifies the swap on chain (amount ≥ fair floor), records it, and opens the PR to Bankr's public skills catalog.
+
+**P5-STOCKS — approve the first real refill from a new stock (owner, optional, ~10 min, only when the US market is open)**
+- *What and why:* agents can now pay from AAPLc, TSLAc, METAc, GOOGLc or MSFTc, not just NVDAc. Every new money path needs your approval of its first real transaction (CLAUDE.md §6). It is all simulated on mainnet state already.
+- *Steps (on your PC, in the repo folder, after merging the PR):*
+  1. `git pull`, then `npm install`.
+  2. Buy about $2 of one stock (for example AAPLc) into your Base Account, the same way you bought NVDAc (Aerodrome). Check the token address against base.org/stocks.
+  3. `npm run dev`, open http://localhost:5173/app → **New permission** → Stock `AAPLc · Apple`, max per day `0.003` → sign.
+  4. Open Test Agent → **Pay from this stock** = `AAPLc` → Save.
+  5. Set `EXECUTOR_MODE=live` in `server/.env`, run `npm run tick` once, then set `EXECUTOR_MODE=` empty again.
+- *How to check it worked:* the tick prints `"result": "confirmed"` for Test Agent; the agent page shows the refill with a BaseScan link. Paste the tx hash in the thread.
+- *What happens next:* Claude checks it on chain and records it in REAL_VS_MOCKED and README.
 
 **P5-BANKR — put the fair-price check live on Bankr (owner only; agents never deploy)**
 - *What and why:* Holdtil's fair-price rule becomes a paid API ($0.01 USDC per call) hosted on Bankr x402 Cloud. Bankr runs it, takes each payment on Base and lists it for Bankr agents. Each answered check shows on `/proof`. Do this after the Render deploy (it needs your Render URL).
@@ -227,6 +238,14 @@ See `REAL_VS_MOCKED.md`. Product features not built yet. Gate 0 used real mainne
 - **2026-11-25 — Fair-price check on Bankr x402 Cloud (FR-FPC-001, sponsor item 2, owner pick).** Files: `bankr/` workspace (`bankr.x402.json`, `x402/fair-price/index.ts` handler, `check.js`, `constants.js`, `lib/` = exact copies of `server/src/core`, `scripts/sync.js`, tests), `server/src/routes/checks.js` (POST `/internal/checks`), `routes/proof.js` (+`fairPrice`, `checks`), `app.js` (route + its own shared rate limit), `config/env.js` (`CHECK_SECRET`, `FAIR_PRICE_URL`), `db/index.js` (indexes), `client/src/pages/Proof.jsx` (new section; screenshots 1280 + 390 checked), PRD §9 FR-FPC-001, §14, §15, §16, §22, §26. Tests: verify pass (191 server, 11 scout, 20 bankr); live read on Base mainnet: $1 of NVDAc → `sell`, gap 10 bps, Chainlink $142.04 (20 min old), min-out 0.999034 USDC. Tx hashes: none. Env: `CHECK_SECRET`, `FAIR_PRICE_URL` (server); `BASE_RPC_URL`, `HOLDTIL_CHECKS_URL`, `CHECK_SECRET` (Bankr). Limits: not deployed (owner step P5-BANKR); Bankr discovery listing is Bankr's call; only NVDAc.
 
 - **2026-11-26 — Holdtil skill for Bankr agents (FR-BKS-001, owner pick).** Files: `bankr/skills/holdtil/` (`SKILL.md`, `catalog.json`, `references/how-it-works.md`, `logo.svg`), `bankr/x402/fair-price/check.js` (+`sell.fairFloorUsdc`), tests `bankr/test/skill.test.js` (+6) and check test, PRD §9/§15/§16/§22/§26, REAL_VS_MOCKED. Tests: verify pass. Live check today: `wait`, `price_stale` (US holiday, reference 12 h old). Tx hashes: none. Env: none. Limits: not tried in a real Bankr wallet yet (owner step P5-BANKR-SKILL, needs P5-BANKR first); no schedule (Bankr Club + $10 minimum); Bankr's swap fee on NVDAc unknown until the owner test.
+
+- **2026-11-26 — Market-hours notice (owner-approved feature 3 of 4).** Files: `server/src/core/marketHours.js` (new, display only), `routes/me.js` + `routes/proof.js` (+`market`), `client/src/components/MarketNotice.jsx` (new), Dashboard, Agent and Proof pages, `styles.css`, tests `test/core/marketHours.test.js` (8) + 2 API checks. While the US market is closed (weekend or NYSE holiday) the app says why Holdtil waits and when the next refill window is expected, in New York and local time. The price guard is unchanged. Checked at 1280 and 390 (mocked API, Thanksgiving): no sideways scroll. Tx: none. Env: none. PRD §16.
+
+- **2026-11-26 — Agent spending log (owner-approved feature 5).** Files: `server/src/routes/proof.js` (`seller`, `item`, `payTo` per payment), `client/src/components/SpendLog.jsx` (new), Proof page ("Where Scout's budget went"; old payments list renamed "Every Scout run"), Agent page ("Where the budget went"; BaseScan link for non-Scout agents), +1 API test. Checked at 1280 and 390 (mocked API): no sideways scroll. Tx: none. Env: none. PRD §16.
+
+- **2026-11-26 — "Earned while waiting" (owner-approved feature 1).** Files: `server/src/core/earned.js` + `services/earned.js` (new), `app.js` (chain reads for stock balance, reference, decimals), `routes/permissions.js` (saves start price at signing; `earned` in GET), `routes/proof.js` (`earned`), `client/src/components/Earned.jsx` (new), Dashboard + Proof, `styles.css`, tests `test/core/earned.test.js` (4) + 2 permission API tests + 1 proof check. Checked at 1280 and 390 (mocked API). Tx: none. Env: none. PRD §16.
+
+- **2026-11-26 — More stocks (owner-approved feature 2, FR-STK-001).** Files: `server/src/config/addresses.js` (AAPLc, TSLAc, METAc, GOOGLc, MSFTc + feeds + pools, `stockOf`), `executor/tick.js` (agent's own stock, decimals check per stock in use, `stock` on refills, pool passed to settle), `chain/executorChain.js` (`checkRefill` needs the stock's pool), `db/refills.js`, `routes/agents.js` (`stock` on add/edit), `routes/refills.js`, `routes/me.js` (stock names), client AgentForm (stock picker), GrantPermission (names, defaults to the agent's stock), Start, Agent ("Pays from"), Docs; tests: +2 address, +1 agents API, +3 tick, new `test/fork/multistock.fork.test.js` (10). Fork: all five stocks simulate a $1 refill with the real spender, USDC ≥ min-out (e.g. AAPLc 1.009017 USDC, min-out 1.003971). Tx: none. Env: none. Limits: no real refill from a new stock yet (owner step P5-STOCKS). PRD §14, §16, §26; REAL_VS_MOCKED; ROADMAP.
 
 ## 11. Manual tasks (owner)
 

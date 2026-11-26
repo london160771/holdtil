@@ -158,6 +158,12 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1px; transition: colo
 .stat-figure.is-mono { font-family: var(--mono); font-size: 16px; letter-spacing: 0; margin-top: 12px; }
 .stat-note { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .stat-key .stat-figure { color: var(--accent); }
+.earned-list { display: grid; gap: 12px; margin-top: 12px; }
+.earned { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 16px 20px; min-width: 0; }
+.earned .stat-figure.is-up { color: var(--ok); }
+.earned .stat-figure.is-down { color: var(--bad); }
+.earned-pct { font-size: 16px; letter-spacing: 0; }
+.earned-why { font-size: 14px; color: var(--ink-2); margin: 8px 0 4px; }
 @media (max-width: 767.98px) { .stats, .stats-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat-figure { font-size: 24px; } }
 
 /* Chips */
@@ -305,6 +311,8 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1px; transition: colo
 .table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 4px 8px; }
 
 .stop-banner { display: flex; align-items: center; gap: 12px; }
+.market-notice { display: flex; align-items: flex-start; gap: 12px; }
+.market-notice > svg { flex: none; margin-top: 4px; }
 
 .facts { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 0; margin: 0 0 8px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 4px 20px; }
 .facts dt, .facts dd { padding: 12px 0; border-bottom: 1px solid var(--line); margin: 0; font-size: 14px; }

@@ -24,6 +24,7 @@ describe('Sign in with Base (FR-AUTH-001)', () => {
     expect(me.status).toBe(200);
     expect(me.body.user.address).toBe(acct.address.toLowerCase());
     expect(me.body.user.onboarded).toBe(false);
+    expect(typeof me.body.market.open).toBe('boolean');
   });
 
   it('replayed nonce → auth_failed', async () => {

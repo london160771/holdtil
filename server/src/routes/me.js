@@ -6,6 +6,7 @@ import { DEFAULTS } from '../config/limits.js';
 import { spentToday } from '../core/limits.js';
 import { REFILLS } from '../db/refills.js';
 import { STOCKS, CHAIN_ID } from '../config/addresses.js';
+import { publicMarketStatus } from '../core/marketHours.js';
 
 export function publicUser(u) {
   return {
@@ -32,8 +33,10 @@ export function meRoutes({ db, config }) {
     res.json({
       user: publicUser(req.user),
       totals: { agents: agents.length, spentTodayUsdc: spent.toString() },
+      // Display only (PRD §16 "Market hours"): explains price_stale waits. The price guard still decides.
+      market: publicMarketStatus(new Date()),
       // Public values the app needs to request a permission. Not secrets.
-      chain: { chainId: CHAIN_ID, spenderAddress: config?.spenderAddress || null, stocks: Object.values(STOCKS).map((s) => ({ symbol: s.symbol, address: s.address, decimals: s.decimals })) },
+      chain: { chainId: CHAIN_ID, spenderAddress: config?.spenderAddress || null, stocks: Object.values(STOCKS).map((s) => ({ symbol: s.symbol, name: s.name, address: s.address, decimals: s.decimals })) },
     });
   });
 

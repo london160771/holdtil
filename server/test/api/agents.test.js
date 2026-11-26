@@ -32,6 +32,21 @@ describe('agents (FR-AGT-001)', () => {
     expect(list.body.agents[0].usdcBalance).toBe('1500000');
   });
 
+  it('multi-stock: NVDAc by default; pick or switch to a supported stock; unknown refused', async () => {
+    const a = await signIn(app, newUser());
+    const def = (await a.post('/v1/agents').send({ name: 'D', walletAddress: wallet() })).body.agent;
+    expect(def.stock).toBe('NVDAc');
+    const ap = await a.post('/v1/agents').send({ name: 'A', walletAddress: wallet(), stock: 'AAPLc' });
+    expect(ap.status).toBe(201);
+    expect(ap.body.agent.stock).toBe('AAPLc');
+    expect((await a.post('/v1/agents').send({ name: 'X', walletAddress: wallet(), stock: 'XYZc' })).status).toBe(400);
+    expect((await a.post('/v1/agents').send({ name: 'X', walletAddress: wallet(), stock: '__proto__' })).status).toBe(400);
+    const sw = await a.patch(`/v1/agents/${def.id}`).send({ stock: 'TSLAc' });
+    expect(sw.body.agent.stock).toBe('TSLAc');
+    expect((await a.patch(`/v1/agents/${def.id}`).send({ stock: 5 })).status).toBe(400);
+    expect(Object.keys(STOCKS)).toContain('TSLAc');
+  });
+
   it('shows "unavailable" when the chain read fails', async () => {
     const a = await signIn(app, newUser());
     await a.post('/v1/agents').send({ name: 'X', walletAddress: wallet() });

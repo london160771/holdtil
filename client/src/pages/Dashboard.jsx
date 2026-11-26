@@ -7,6 +7,8 @@ import AgentForm from '../components/AgentForm.jsx';
 import { revokePermission } from '../wallet.js';
 import { Plus, Play, OctagonX } from 'lucide-react';
 import { HoldGlyph } from '../components/Brand.jsx';
+import MarketNotice from '../components/MarketNotice.jsx';
+import Earned from '../components/Earned.jsx';
 
 function FloatBar({ agent }) {
   if (agent.usdcBalance === undefined || agent.usdcBalance === 'unavailable') {
@@ -41,6 +43,7 @@ const DECIMALS = (me, symbol) => me.chain.stocks.find((s) => s.symbol === symbol
 export default function Dashboard({ me, reload }) {
   const [agents, setAgents] = useState(null);
   const [perms, setPerms] = useState(null);
+  const [earned, setEarned] = useState(undefined);
   const [error, setError] = useState(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [showGrant, setShowGrant] = useState(false);
@@ -51,6 +54,7 @@ export default function Dashboard({ me, reload }) {
       const [a, p] = await Promise.all([api('/v1/agents'), api('/v1/permissions')]);
       setAgents(a.agents);
       setPerms(p.permissions);
+      setEarned(p.earned);
       setLoadFailed(false);
       setError(null);
     } catch (e) {
@@ -101,6 +105,7 @@ export default function Dashboard({ me, reload }) {
           All agents are stopped. Holdtil will not sell anything until you resume.
         </div>
       )}
+      <MarketNotice market={me.market} />
       {error && (
         <div className="alert alert-danger d-flex flex-wrap gap-2 align-items-center justify-content-between">
           <span>{error}</span>
@@ -118,6 +123,8 @@ export default function Dashboard({ me, reload }) {
         <div className="stat"><div className="stat-label">Account</div><div className="stat-figure is-mono">{short(me.user.address)}</div><div className="stat-note">{me.user.stopped ? 'Stopped' : 'Running'}</div></div>
       </div>
 
+      <Earned earned={earned} />
+
       <div className="block-head">
         <h2 className="block-title">Agents</h2>
         <button type="button" className="btn btn-sm btn-quiet" onClick={() => setShowAdd((v) => !v)}>
@@ -128,6 +135,7 @@ export default function Dashboard({ me, reload }) {
         <div className="panel mb-3">
           <AgentForm
             submitLabel="Add agent"
+            stocks={me.chain?.stocks}
             onSubmit={async (body) => {
               await api('/v1/agents', { method: 'POST', body });
               setShowAdd(false);

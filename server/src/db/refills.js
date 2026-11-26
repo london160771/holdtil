@@ -67,7 +67,7 @@ export async function createPlannedRefill(db, { agentId, tickId, plannedUsdc, no
  */
 // Extra fields a transition may record. Money is stored as strings (INV-1).
 const MOVABLE_FIELDS = new Set([
-  'stockAmount', 'usdcOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'txHash', 'reason',
+  'stock', 'stockAmount', 'usdcOut', 'minOut', 'refPrice', 'refPriceAt', 'quotePrice', 'gapBps', 'txHash', 'reason',
   'userOpHash', 'permissionHash', 'quotedOut', 'simulatedUsdcOut', 'maxPayoutUsdc', 'mode', 'sentAt', 'confirmedAt',
 ]);
 

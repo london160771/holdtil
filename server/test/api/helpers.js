@@ -45,6 +45,15 @@ export function fakeChain(overrides = {}) {
       if (state.fail) throw new Error('rpc down');
       return state.balances.get(addr) ?? 0n;
     },
+    readStockBalance: async (_token, addr) => {
+      if (state.fail) throw new Error('rpc down');
+      return state.stockBalances?.get(addr.toLowerCase()) ?? 0n;
+    },
+    readReference: async () => {
+      if (state.fail) throw new Error('rpc down');
+      return { answer: state.price ?? 15_000_000_000n, decimals: 8, updatedAt: BigInt(Math.floor(Date.now() / 1000)), roundId: 1n, answeredInRound: 1n };
+    },
+    readDecimals: async () => 8,
     ...overrides,
   };
   return chain;
