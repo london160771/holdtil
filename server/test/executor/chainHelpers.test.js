@@ -32,7 +32,12 @@ describe('readUserOpResult', () => {
   const opts = { userOpHash: OP, agentWallet: AGENT, pool: POOL, spender: SPENDER };
   it('counts only pool → agent USDC for our successful op', () => {
     const logs = [transfer(POOL, AGENT, 1_000_000n), transfer('0x2222222222222222222222222222222222222222', AGENT, 5_000_000n), transfer(POOL, AGENT, 7n, STOCKS.NVDAc.address), opEvent(OP, true)];
-    expect(readUserOpResult(logs, opts)).toEqual({ found: true, success: true, usdcOut: 1_000_000n });
+    expect(readUserOpResult(logs, opts)).toEqual({ found: true, success: true, usdcOut: 1_000_000n, feeOut: 0n });
+  });
+  it('counts the gas fee (pool → fee wallet) apart from the agent USDC', () => {
+    const FEE = '0x3333333333333333333333333333333333333333';
+    const logs = [transfer(POOL, AGENT, 1_000_000n), transfer(POOL, FEE, 20_000n), transfer('0x2222222222222222222222222222222222222222', FEE, 9n), opEvent(OP, true)];
+    expect(readUserOpResult(logs, { ...opts, feeWallet: FEE })).toEqual({ found: true, success: true, usdcOut: 1_000_000n, feeOut: 20_000n });
   });
   it('reports a reverted op', () => {
     expect(readUserOpResult([opEvent(OP, false)], opts)).toMatchObject({ found: true, success: false });

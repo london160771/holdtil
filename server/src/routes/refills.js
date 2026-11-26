@@ -6,7 +6,7 @@ import { REFILLS } from '../db/refills.js';
 import { CODES } from '../errors.js';
 
 const PAGE = 20;
-const MONEY = ['plannedUsdc', 'stockAmount', 'quotedOut', 'minOut', 'simulatedUsdcOut', 'usdcOut', 'maxPayoutUsdc', 'refPrice', 'quotePrice', 'gapBps', 'refPriceAt'];
+const MONEY = ['plannedUsdc', 'stockAmount', 'quotedOut', 'minOut', 'simulatedUsdcOut', 'usdcOut', 'maxPayoutUsdc', 'refPrice', 'quotePrice', 'gapBps', 'refPriceAt', 'feeStockAmount', 'feeMinOut', 'simulatedFeeOut', 'feeUsdcOut'];
 
 export function publicRefill(r) {
   const out = {

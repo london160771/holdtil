@@ -33,7 +33,8 @@ export function spentToday(refills, nowSec) {
   let total = 0n;
   for (const r of refills) {
     if (utcDayKey(toUnixSec(r.createdAt)) !== today) continue;
-    if (r.state === 'confirmed') total += toUnits(r.usdcOut ?? r.plannedUsdc, 'usdcOut');
+    // Confirmed: what the agent got plus the gas fee sold from the same stock (FR-RFL-006).
+    if (r.state === 'confirmed') total += toUnits(r.usdcOut ?? r.plannedUsdc, 'usdcOut') + (r.feeUsdcOut !== undefined && r.feeUsdcOut !== null ? toUnits(r.feeUsdcOut, 'feeUsdcOut') : 0n);
     else if (IN_FLIGHT.has(r.state)) {
       // The larger of the lock-time plan and the re-checked max payout (Checkpoint C #8).
       const planned = toUnits(r.plannedUsdc, 'plannedUsdc');
