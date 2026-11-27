@@ -14,9 +14,14 @@ function provider() {
   return sdk.getProvider();
 }
 
-/** Makes sure the Base Account provider is on Base (8453). Throws a clear error if the wallet stays elsewhere. */
-async function ensureBase(p) {
+/**
+ * Makes sure the Base Account provider is on Base (8453). Throws a clear error if the wallet stays elsewhere.
+ * Before the user connects, the SDK's eth_chainId always answers 1 (hard-coded default), so the check only runs
+ * with `verify: true`, i.e. after connecting. A fresh browser (no remembered session) failed here before.
+ */
+async function ensureBase(p, { verify = true } = {}) {
   await p.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_HEX }] });
+  if (!verify) return;
   const current = Number(await p.request({ method: 'eth_chainId' }));
   if (current !== BASE_CHAIN_ID) throw new Error(`Your wallet is on chain ${current}, not Base. Switch it to Base and try again.`);
 }
@@ -25,7 +30,7 @@ async function ensureBase(p) {
 // Always the Base Account SDK provider: never window.ethereum (Brave/MetaMask etc. are ignored).
 export async function signInWithBase() {
   const p = provider();
-  await ensureBase(p); // before connecting: sets the SDK's chain
+  await ensureBase(p, { verify: false }); // before connecting: sets the SDK's chain (eth_chainId is not reliable yet)
   const accounts = await p.request({ method: 'eth_requestAccounts' });
   if (!accounts?.[0]) throw new Error('No account was shared by the wallet');
   const address = getAddress(accounts[0]);
